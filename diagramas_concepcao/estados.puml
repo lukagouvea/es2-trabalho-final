@@ -1,0 +1,15 @@
+@startuml
+title Ciclo de vida da ocorrência
+[*] --> Registrada : registrar / criar histórico
+Registrada --> "Em análise" : iniciar análise
+"Em análise" --> "Em análise" : transferir / atualizar setor e histórico
+"Em análise" --> "Em andamento" : iniciar atendimento
+"Em análise" --> Encerrada : encerrar [justificativa informada]
+"Em andamento" --> Resolvida : concluir [providência informada]
+Resolvida --> [*]
+Encerrada --> [*]
+note right of Resolvida
+Reabertura ainda não integra esta versão.
+Toda mudança de situação gera histórico.
+end note
+@enduml

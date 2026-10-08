@@ -1,0 +1,37 @@
+@startuml
+left to right direction
+title Casos de uso de alto nível
+actor "Membro da comunidade" as M
+actor "Responsável de manutenção" as R
+actor Administrador as A
+M <|-- R
+M <|-- A
+rectangle "Mapa colaborativo — Android" {
+  usecase "UC1 — Registrar ocorrência" as UC1
+  usecase "UC2 — Colaborar com ocorrência" as UC2
+  usecase "UC3 — Analisar demanda" as UC3
+  usecase "UC4 — Atualizar atendimento" as UC4
+  usecase "Manter própria conta" as Conta <<CRUD>>
+  usecase "Configurar manutenção" as Config <<CRUD>>
+  usecase "Q1 — Consultar mapa" as Q1 <<rep>>
+  usecase "Q2 — Consultar acompanhamento" as Q2 <<rep>>
+  usecase "Q3 — Consultar demandas do setor" as Q3 <<rep>>
+  usecase "Q4 — Consultar estatísticas" as Q4 <<rep>>
+}
+M -- UC1
+M -- UC2
+M -- Q1
+M -- Q2
+M -- Q4
+M -- Conta
+R -- UC3
+R -- UC4
+R -- Q3
+A -- Config
+note bottom of Conta
+Autenticação é apoio aos processos.
+Histórico é registrado automaticamente.
+CRUD: manutenção de informações; rep: consultas.
+UC1–UC4: processos de negócio, mantidos nesta versão.
+end note
+@enduml

@@ -1,0 +1,53 @@
+@startuml
+title Modelo conceitual preliminar
+hide methods
+skinparam classAttributeIconSize 0
+class Usuário {
+  nome
+  email
+  perfil
+}
+class Setor {
+  nome
+  descrição
+}
+class Categoria {
+  nome
+}
+class "Vínculo de responsável" as Vinculo
+class Ocorrência {
+  descrição
+  localização
+  foto
+  data de criação
+  situação
+}
+class Confirmação {
+  data
+}
+class "Informação complementar" as Info {
+  texto
+  data
+}
+class "Evento de histórico" as Evento {
+  data
+  tipo
+  registro da alteração
+}
+Usuário -- Vinculo : possui
+Vinculo -- Setor : autoriza atuação
+Categoria -- Setor : encaminha para
+Usuário -- Ocorrência : registra
+Ocorrência -- Categoria : classificada em
+Ocorrência -- Setor : atribuída a
+Usuário -- Confirmação : efetua
+Confirmação -- Ocorrência : confirma
+Usuário -- Info : acrescenta
+Info -- Ocorrência : complementa
+Usuário -- Evento : autoria
+Evento -- Ocorrência : documenta
+note bottom of Info
+F6 é desejável.
+Não há métodos, tipos, multiplicidades ou navegabilidade.
+end note
+@enduml

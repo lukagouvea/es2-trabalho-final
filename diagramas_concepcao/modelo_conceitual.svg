@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="840" viewBox="0 0 1360 840" role="img"><title>Modelo conceitual preliminar</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#263443"/></marker><marker id="inherit" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="13" markerHeight="13" orient="auto"><path d="M 1 1 L 11 6 L 1 11 z" fill="white" stroke="#263443"/></marker></defs>
+<rect width="1360" height="840" fill="white"/>
+<text x="680" y="38" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="22" font-weight="bold" fill="#263443">
+<tspan x="680" dy="0">Modelo conceitual preliminar</tspan>
+</text>
+<rect x="50" y="85" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="50" y="85" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="167.5" y="112" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="167.5" dy="0">Usuário</tspan>
+</text>
+<text x="65" y="153" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="65" dy="0">nome</tspan>
+<tspan x="65" dy="20.25">email</tspan>
+<tspan x="65" dy="20.25">perfil</tspan>
+</text>
+<rect x="370" y="85" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="370" y="85" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="487.5" y="112" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="487.5" dy="0">Vínculo de responsável</tspan>
+</text>
+<rect x="690" y="85" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="690" y="85" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="807.5" y="112" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="807.5" dy="0">Setor</tspan>
+</text>
+<text x="705" y="153" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="705" dy="0">nome</tspan>
+<tspan x="705" dy="20.25">descrição</tspan>
+</text>
+<rect x="1010" y="85" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="1010" y="85" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="1127.5" y="112" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="1127.5" dy="0">Categoria</tspan>
+</text>
+<text x="1025" y="153" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="1025" dy="0">nome</tspan>
+</text>
+<rect x="50" y="415" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="50" y="415" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="167.5" y="442" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="167.5" dy="0">Confirmação</tspan>
+</text>
+<text x="65" y="483" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="65" dy="0">data</tspan>
+</text>
+<rect x="370" y="415" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="370" y="415" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="487.5" y="442" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="487.5" dy="0">Informação complementar</tspan>
+</text>
+<text x="385" y="483" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="385" dy="0">texto</tspan>
+<tspan x="385" dy="20.25">data</tspan>
+</text>
+<rect x="690" y="415" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="690" y="415" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="807.5" y="442" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="807.5" dy="0">Ocorrência</tspan>
+</text>
+<text x="705" y="483" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="705" dy="0">descrição</tspan>
+<tspan x="705" dy="20.25">localização / foto</tspan>
+<tspan x="705" dy="20.25">data de criação</tspan>
+<tspan x="705" dy="20.25">situação</tspan>
+</text>
+<rect x="1010" y="415" width="235" height="180" rx="0" fill="white" stroke="#263443" stroke-width="1.6"/>
+<rect x="1010" y="415" width="235" height="42" rx="0" fill="#edf2f8" stroke="#263443" stroke-width="1.6"/>
+<text x="1127.5" y="442" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="bold" fill="#263443">
+<tspan x="1127.5" dy="0">Evento de histórico</tspan>
+</text>
+<text x="1025" y="483" text-anchor="start" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="normal" fill="#263443">
+<tspan x="1025" dy="0">data</tspan>
+<tspan x="1025" dy="20.25">tipo</tspan>
+<tspan x="1025" dy="20.25">registro da alteração</tspan>
+</text>
+<path d="M285,175 H370" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="330" y="157" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="330" dy="0">possui</tspan>
+</text>
+<path d="M605,175 H690" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="648" y="147" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="648" dy="0">autoriza</tspan>
+</text>
+<path d="M925,175 H1010" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="968" y="147" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="968" dy="0">encaminha</tspan>
+</text>
+<path d="M808,265 V415" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="850" y="337" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="850" dy="0">atribuída a</tspan>
+</text>
+<path d="M1127,265 V320 H925 V435" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="1040" y="305" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="1040" dy="0">classificada em</tspan>
+</text>
+<path d="M167,265 V415" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="195" y="340" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="195" dy="0">efetua</tspan>
+</text>
+<path d="M285,235 H320 V365 H730 V415" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="520" y="350" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="520" dy="0">registra</tspan>
+</text>
+<path d="M285,220 H335 V435 H370" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="322" y="410" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="322" dy="0">acrescenta</tspan>
+</text>
+<path d="M605,485 H690" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="647" y="468" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="647" dy="0">complementa</tspan>
+</text>
+<path d="M167,595 V665 H808 V595" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="470" y="650" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="470" dy="0">confirma</tspan>
+</text>
+<path d="M925,485 H1010" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="968" y="463" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="968" dy="0">documenta</tspan>
+</text>
+<path d="M167,85 V65 H1290 V485 H1245" fill="none" stroke="#263443" stroke-width="1.5"/>
+<text x="1320" y="370" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="normal" fill="#263443">
+<tspan x="1320" dy="0">autoria</tspan>
+</text>
+<text x="680" y="740" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="normal" fill="#263443">
+<tspan x="680" dy="0">Informação complementar corresponde ao requisito desejável F6.</tspan>
+<tspan x="680" dy="21.6">Sem métodos, tipos, multiplicidades ou navegabilidade.</tspan>
+<tspan x="680" dy="21.6">Associações representam relações do domínio, sem definir implementação.</tspan>
+</text>
+</svg>

@@ -1,0 +1,27 @@
+@startuml
+title Processo de negócio — atendimento de uma ocorrência
+|Membro da comunidade|
+start
+:Identificar problema e consultar o mapa;
+:Registrar nova ocorrência;
+|Sistema|
+:Registrar e encaminhar ao setor;
+|Responsável de manutenção|
+:Analisar demanda;
+if (Demanda atendível?) then (sim)
+  :Registrar início do atendimento;
+  :Executar manutenção fora do aplicativo;
+  :Registrar resolução e providência;
+else (não)
+  :Encerrar com justificativa;
+endif
+|Sistema|
+:Disponibilizar situação e histórico;
+|Membro da comunidade|
+:Consultar resultado;
+stop
+note right
+O histórico é atualizado a cada alteração relevante.
+Colaboração sobre registro existente é um processo separado.
+end note
+@enduml
