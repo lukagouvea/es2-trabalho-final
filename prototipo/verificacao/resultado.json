@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "checks": [
+    "Mapa inicial com sete ocorrências ativas e conta de demonstração",
+    "Mapa geográfico: zoom, deslocamento, alternância Satélite/Mapa, atribuição e seleção de marcador",
+    "Busca e filtros combinados de categoria, situação e setor",
+    "Confirmação única, contribuição textual, histórico e persistência após recarga",
+    "Registro em três etapas, validação do local, teclado, foto e encaminhamento pela categoria",
+    "Fila restrita aos setores vinculados e ciclo registrada → análise → andamento → resolvida",
+    "Bloqueio de atendimento sem vínculo, transferência com histórico e encerramento justificado",
+    "Administração sem atendimento automático; setores, categorias e vínculos; preservação de referências",
+    "Acesso administrativo bloqueado para membro e média pela data da resolução, inclusive registros anteriores",
+    "Edição da conta, saída, autenticação obrigatória, cadastro e entrada com senha derivada sem texto puro",
+    "Falha de gravação informa erro e não altera dados nem apresenta sucesso",
+    "Layouts de 390 e 360 px, seleção de perfil móvel e diálogo com Escape",
+    "Abertura direta do index.html sem servidor",
+    "Migração do mapa antigo preserva registros, contas, confirmações e atendimento"
+  ],
+  "pageErrors": [],
+  "viewports": [
+    "1440×1000",
+    "390×844",
+    "360×740"
+  ]
+}

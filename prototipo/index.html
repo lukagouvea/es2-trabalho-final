@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#285943">
+  <meta name="description" content="Protótipo navegável do mapa colaborativo de ocorrências da UFV, campus Viçosa.">
+  <title>Campus em dia — Protótipo Grupo 5</title>
+  <link rel="icon" href="assets/simbolo.svg" type="image/svg+xml">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="stylesheet" href="assets/leaflet/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="assets/leaflet/leaflet.js" defer></script>
+  <script src="map-data.js" defer></script>
+  <script src="data.js" defer></script>
+  <script src="map.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="workbench-header">
+    <a class="brand" href="#/mapa" aria-label="Campus em dia, início">
+      <img src="assets/simbolo.svg" alt="" width="40" height="40">
+      <span>campus <strong>em dia</strong><small>UFV · CAMPUS VIÇOSA</small></span>
+    </a>
+    <div class="prototype-label"><span class="live-dot"></span> Protótipo navegável <span class="version">01</span></div>
+  </header>
+
+  <main class="workbench">
+    <aside class="explorer" aria-label="Controles da demonstração">
+      <span class="eyebrow">UM CAMPUS, MUITOS OLHARES</span>
+      <h1>Explore o sistema.</h1>
+      <p class="intro">Um espaço para registrar problemas e acompanhar o cuidado com o nosso campus.</p>
+      <div class="panel-label">TESTE UM PERFIL</div>
+      <div id="demo-profiles" class="demo-profiles"></div>
+      <button class="text-button access-demo" data-action="access">Ver entrada e cadastro <span aria-hidden="true">↗</span></button>
+      <div class="explorer-note"><span class="note-symbol">i</span><p>Você está explorando as telas de um aplicativo Android. Os dados e as contas são de demonstração.</p></div>
+      <button class="reset-button" data-action="reset">Restaurar demonstração</button>
+    </aside>
+
+    <section class="device-zone" aria-label="Protótipo interativo do aplicativo">
+      <div class="device">
+        <div class="status-bar" aria-hidden="true"><span>9:41</span><span class="device-camera"></span><span class="status-indicators">▂▄▆ <span>◔</span> ▰</span></div>
+        <div id="app" class="app"></div>
+        <div class="gesture-bar" aria-hidden="true"><span></span></div>
+      </div>
+      <div class="device-caption"><span class="live-dot"></span> Android · clique e navegue pelas telas</div>
+    </section>
+
+    <aside id="screen-guide" class="screen-guide" aria-label="Roteiro de exploração"></aside>
+  </main>
+
+  <footer class="workbench-footer"><span>ENGENHARIA DE SOFTWARE II <span class="footer-dot">/</span> GRUPO 5</span><span>Da observação à resolução.</span></footer>
+  <div class="mobile-demo"><span>Explorar como</span><select id="mobile-profile" aria-label="Perfil da demonstração"><option value="marina">Comunidade</option><option value="joao">Manutenção</option><option value="ana">Administração</option><option value="access">Entrada / cadastro</option></select></div>
+  <dialog id="sheet" class="sheet"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
