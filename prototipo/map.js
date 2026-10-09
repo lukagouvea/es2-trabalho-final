@@ -13,6 +13,7 @@ window.CampusMaps = (() => {
     entry.observer?.disconnect();
     entry.map.stop();
     entry.map.remove();
+    entry.credits.remove();
     instances.delete(id);
   }
   function dispose() { for (const id of [...instances.keys()]) cleanup(id); }
@@ -54,7 +55,14 @@ window.CampusMaps = (() => {
     cleanup(id);
     const map = L.map(node, { zoomControl: false, attributionControl: true, minZoom: 14, maxZoom: 20, dragging: interactive, touchZoom: interactive, scrollWheelZoom: interactive, doubleClickZoom: interactive, boxZoom: interactive, keyboard: interactive, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, maxBounds: [[geo.bounds[0][0] - .015, geo.bounds[0][1] - .015], [geo.bounds[1][0] + .015, geo.bounds[1][1] + .015]], maxBoundsViscosity: .8 });
     map.attributionControl.setPrefix(false);
-    const entry = { map, layer: null, markers: L.layerGroup().addTo(map), pin: null, remember };
+    // Mantém os créditos visíveis junto ao mapa, sem sobrepor a área navegável.
+    const credits = document.createElement('div');
+    credits.className = 'map-credits';
+    credits.setAttribute('aria-label', 'Créditos do mapa');
+    credits.append(map.attributionControl.getContainer());
+    if (remember) node.parentElement.after(credits);
+    else node.after(credits);
+    const entry = { map, credits, layer: null, markers: L.layerGroup().addTo(map), pin: null, remember };
     instances.set(id, entry);
     map.setView(center, zoom, { animate: false });
     if (remember && mainView.initial) {
@@ -70,10 +78,11 @@ window.CampusMaps = (() => {
   function switcher() {
     return `<div class="map-style-switch" aria-label="Tipo de mapa">${Object.entries(geo.layers).map(([id, layer]) => `<button type="button" data-action="map-style" data-value="${id}" aria-pressed="${style === id}" class="${style === id ? 'active' : ''}">${layer.label}</button>`).join('')}</div>`;
   }
-  function mountMain({ items, selected, category, icon, onSelect }) {
+  function mountMain({ items, selected, category, icon, onSelect, onDeselect }) {
     const entry = create('campus-map', { ...mainView, remember: true });
     if (!entry) return;
     entry.onSelect = onSelect; entry.category = category; entry.icon = icon;
+    entry.map.on('click', () => onDeselect?.());
     updateMarkers(items, selected);
   }
   function updateMarkers(items, selected) {

@@ -3,6 +3,7 @@
   "checks": [
     "Mapa inicial com sete ocorrências ativas e conta de demonstração",
     "Mapa geográfico: zoom, deslocamento, alternância Satélite/Mapa, atribuição e seleção de marcador",
+    "Clique no fundo desmarca a ocorrência sem alterar o mapa; card permanece fechado até outro marcador ser selecionado",
     "Busca e filtros combinados de categoria, situação e setor",
     "Confirmação única, contribuição textual, histórico e persistência após recarga",
     "Registro em três etapas, validação do local, teclado, foto e encaminhamento pela categoria",

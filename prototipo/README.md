@@ -28,12 +28,22 @@ Use os botões de demonstração ou entre com os e-mails acima e a senha **`camp
 
 ## Roteiros para apresentar
 
-1. **Comunidade:** explore o mapa, selecione um marcador, abra seus detalhes, confirme o problema e acrescente uma informação. Confira o histórico e a aba de confirmações em **Acompanhar**.
-2. **Registro:** clique em **Registrar ocorrência**, arraste/aproxime o mapa real, toque no local ou escolha um ponto de referência, selecione uma categoria, descreva o problema, adicione uma foto opcional e revise. Latitude e longitude são salvas com o registro, que aparece nos detalhes, no mapa e no acompanhamento.
+1. **Comunidade:** explore o mapa e selecione um marcador para abrir o resumo. Clique ou toque no fundo do mapa para desmarcar a ocorrência e fechar o card; selecione outro marcador para reabri-lo. Abra os detalhes, confirme o problema e acrescente uma informação. Confira o histórico e a aba de confirmações em **Acompanhar**.
+2. **Registro:** clique em **Registrar ocorrência**, arraste/aproxime o mapa real, toque no local ou escolha um ponto de referência e confira o nome identificado. Você pode corrigir o nome. Selecione uma categoria, descreva o problema, adicione uma foto opcional e revise. Nome, latitude e longitude são salvos com o registro, que aparece nos detalhes, no mapa e no acompanhamento.
 3. **Manutenção:** escolha João, abra uma demanda de elétrica/equipamentos e avance de **Registrada → Em análise → Em andamento → Resolvida**. A resolução exige a descrição da providência. Na análise, também é possível transferir a demanda ou encerrá-la com justificativa.
 4. **Administração:** escolha Ana para criar/editar setores e categorias e vincular contas aos setores. Altere um encaminhamento e registre uma nova ocorrência para observar a configuração. Ana não pode atender sem um vínculo de setor.
 5. **Panorama:** consulte quantidades por situação, categoria e setor e escolha um intervalo. A média considera a data de resolução, incluindo ocorrências criadas antes do período.
 6. **Conta:** altere nome/e-mail, saia e crie uma nova conta com um e-mail comum. Entre novamente para testar o acesso dessa conta.
+
+## Nome do local no mapa
+
+Ao marcar um ponto, o protótipo consulta as coordenadas no serviço Photon, baseado em dados do OpenStreetMap, e preenche o nome ou endereço retornado. Os atalhos de Biblioteca, RU e CCE posicionam o marcador e também consultam o serviço. O nome de novos registros é obtido dessa consulta, em vez de escolher o ponto mais próximo de uma lista fixa.
+
+O campo **Nome do local** permite corrigir a sugestão. Enquanto a consulta está em andamento, **Continuar** aguarda o resultado; informar um nome manualmente libera o botão. Se não houver nome cadastrado, conexão ou resposta no prazo, as coordenadas continuam disponíveis para registrar o ponto, informar um nome ou repetir a consulta. A posição salva é sempre aquela marcada pelo usuário, mesmo que a descrição retornada corresponda a um objeto próximo.
+
+A consulta ocorre apenas após selecionar um ponto, com espera de 400 ms para combinar cliques rápidos, intervalo mínimo de 1,1 segundo entre consultas e cache local de até 100 resultados por 24 horas. Selecionar outro ponto ou corrigir o nome cancela a consulta anterior. As ocorrências já salvas conservam o nome informado no momento do registro.
+
+`geocoding.js` implementa a consulta. O endpoint e os limites estão em `assets/geocoding-config.json`; o endpoint pode ser trocado por outra instância compatível com a API Photon. O serviço público é adequado às poucas consultas do protótipo e depende da disponibilidade e dos nomes cadastrados pelo provedor. [Documentação e condições de uso do Photon](https://github.com/komoot/photon).
 
 ## Cobertura da concepção
 
@@ -55,7 +65,7 @@ Use os botões de demonstração ou entre com os e-mails acima e a senha **`camp
 
 ## Dados e limites da simulação
 
-- O mapa mostra o **campus Viçosa real**, usando a referência `-20.760506, -42.869627` enviada no link do Google Maps. Há duas camadas: **Satélite**, com imagens Esri World Imagery, e **Mapa**, com cartografia OpenStreetMap. As atribuições ficam visíveis em cada mapa. Zoom, deslocamento, seleção do local e revisão usam coordenadas geográficas reais.
+- O mapa mostra o **campus Viçosa real**, usando a referência `-20.760506, -42.869627` enviada no link do Google Maps. Há duas camadas: **Satélite**, com imagens Esri World Imagery, e **Mapa**, com cartografia OpenStreetMap. Os créditos dos provedores ficam visíveis em uma faixa imediatamente abaixo de cada mapa, sem cobrir a área navegável. Zoom, deslocamento, seleção do local e revisão usam coordenadas geográficas reais.
 - Biblioteca Central, RU I, CCE, Pavilhão de Aulas I, Praça do DCE e outros pontos foram localizados nos dados abertos do OpenStreetMap. A origem e as geometrias consultadas estão em `assets/locais-ufv.geojson`.
 - **As ocorrências, contas e setores continuam fictícios.** Os marcadores de exemplo foram posicionados próximos aos pontos reais, sem indicar problemas existentes de fato.
 - A validação usa uma **área de referência aproximada do campus**, entre `-20.774, -42.879` e `-20.750, -42.853`. Essa área serve ao protótipo e não representa o limite cadastral oficial da universidade. A marcação é manual e não precisa de GPS.
@@ -80,7 +90,7 @@ As pendências do documento [Regras_de_Negocio_Pendentes_Grupo5.md](../Regras_de
 
 ## Arquivos
 
-`index.html` contém a apresentação; `styles.css` define a interface responsiva; `data.js` contém os exemplos; `app.js` implementa navegação e interações; `map-data.js` reúne coordenadas e migração; `map.js` controla os mapas reais; `assets/` contém símbolo, fontes, referências geográficas e Leaflet 1.9.4 com sua licença. Não é necessário instalar dependências.
+`index.html` contém a apresentação; `styles.css` define a interface responsiva; `data.js` contém os exemplos; `app.js` implementa navegação e interações; `map-data.js` reúne coordenadas e migração; `map.js` controla os mapas reais; `geocoding.js` consulta os nomes; `assets/` contém configuração do geocodificador, símbolo, fontes, referências geográficas e Leaflet 1.9.4 com sua licença. Não é necessário instalar dependências.
 
 `verificacao/` contém capturas e a validação de fluxos feita com Playwright. Os scripts são opcionais, não necessários para abrir o protótipo. Para executar a verificação em uma máquina com Playwright e Chrome instalados:
 
@@ -88,7 +98,7 @@ As pendências do documento [Regras_de_Negocio_Pendentes_Grupo5.md](../Regras_de
 CAMPUS_PLAYWRIGHT=/caminho/do/pacote/playwright CAMPUS_CHROME=/caminho/do/chrome node prototipo/verificacao/fluxos.cjs
 ```
 
-O teste usa uma sessão isolada e não altera os dados do seu navegador habitual. Os tiles são simulados nos testes automatizados para não gerar tráfego repetitivo aos provedores. A inspeção visual separada verifica imagens reais em `verificacao/visualizar.cjs`. O relatório é salvo em `verificacao/resultado.json`.
+O teste usa uma sessão isolada e não altera os dados do seu navegador habitual. Tiles e consultas de nomes são simulados nos testes automatizados para não gerar tráfego repetitivo aos provedores. `verificacao/localizacao.cjs`, executado da mesma forma que `fluxos.cjs`, verifica respostas atrasadas, cache, correção manual, falta de nomes, falhas de conexão e limite de espera. A inspeção visual separada verifica imagens reais em `verificacao/visualizar.cjs`. O relatório dos fluxos é salvo em `verificacao/resultado.json`.
 
 ## Referências do mapa
 

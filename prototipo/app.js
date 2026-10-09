@@ -3,6 +3,7 @@
   const { initial, statuses, demoDate, storageKey } = window.CampusData;
   const geo = window.CampusGeo;
   const maps = window.CampusMaps;
+  const geocoder = window.CampusGeocoder;
   const app = document.querySelector('#app');
   const sheet = document.querySelector('#sheet');
   const paths = {
@@ -75,8 +76,9 @@
   let draft = freshDraft();
   let toastTimer;
   let authBusy = false;
+  let locationLookup;
 
-  function freshDraft() { return { location: '', lat: null, lng: null, category: '', description: '', reference: '', photo: null }; }
+  function freshDraft() { return { location: '', lat: null, lng: null, locationStatus: 'idle', locationSource: 'coordinates', locationMetadata: null, category: '', description: '', reference: '', photo: null }; }
   const user = () => data.users.find(u => u.id === userId);
   const cat = id => data.categories.find(c => c.id === id);
   const sector = id => data.sectors.find(s => s.id === id);
@@ -137,8 +139,8 @@
     const query = search.trim().toLocaleLowerCase('pt-BR');
     return data.occurrences.filter(o => (!filter.category || o.category === filter.category) && (!filter.sector || o.sector === filter.sector) && (!filter.status || (filter.status === 'ativas' ? !terminal(o) : o.status === filter.status)) && (!query || `${o.title} ${o.description} ${o.location} ${cat(o.category).name} ${o.id}`.toLocaleLowerCase('pt-BR').includes(query)));
   }
-  function mapPreview(o) {
-    if (!o) return `<div class="map-preview"><h2>Nenhuma ocorrência encontrada</h2><p class="subtle">Ajuste os filtros para explorar outros registros.</p><button class="text-button" data-action="clear-filters">Limpar filtros ${icon('arrow')}</button></div>`;
+  function mapPreview(o, showEmptyState = false) {
+    if (!o) return showEmptyState ? `<div class="map-preview"><h2>Nenhuma ocorrência encontrada</h2><p class="subtle">Ajuste os filtros para explorar outros registros.</p><button class="text-button" data-action="clear-filters">Limpar filtros ${icon('arrow')}</button></div>` : '';
     const c = cat(o.category);
     return `<button class="map-preview" data-action="detail" data-id="${o.id}" aria-label="Ver detalhes de ${esc(o.title)}"><div class="preview-top">${categoryIcon(c)}<div><span class="category-name">${esc(c.name)}</span><small>OCORRÊNCIA #${o.id}</small></div>${statusBadge(o.status)}</div><h2>${esc(o.title)}</h2><div class="preview-bottom"><span>${icon('pin')}${esc(o.location)}</span><span>${icon('users')}${confirmationCount(o)}</span><span class="preview-arrow">${icon('arrow')}</span></div></button>`;
   }
@@ -149,15 +151,15 @@
     if (preview) preview.innerHTML = mapPreview(data.occurrences.find(o => o.id === id));
   }
   function mountMaps() {
-    if (document.querySelector('#campus-map')) maps.mountMain({ items: filteredOccurrences(), selected: selectedId, category: cat, icon, onSelect: selectOccurrence });
+    if (document.querySelector('#campus-map')) maps.mountMain({ items: filteredOccurrences(), selected: selectedId, category: cat, icon, onSelect: selectOccurrence, onDeselect: () => { if (selectedId != null) selectOccurrence(null); } });
     if (document.querySelector('#location-picker')) maps.mountPicker({ draft, icon, onSelect: selectLocation });
     if (document.querySelector('#review-map')) maps.mountReview({ draft, icon });
   }
   function mapBody() {
     const items = filteredOccurrences();
-    if (!items.some(o => o.id === selectedId)) selectedId = items[0]?.id;
+    if (selectedId !== null && !items.some(o => o.id === selectedId)) selectedId = items[0]?.id;
     if (mapList) return `<div class="app-scroll map-list"><div class="list-meta">${items.length} ocorrências encontradas</div><div class="occurrence-list">${items.map(row).join('') || empty('Nada por aqui', 'Ajuste os filtros ou faça um novo registro.')}</div><div class="list-register"><button class="primary-button wide" data-action="new">${icon('plus')}Registrar ocorrência</button></div></div>`;
-    return `<div class="map-stage"><div id="campus-map" class="real-campus-map" aria-label="Mapa real da UFV, campus Viçosa"></div><div class="map-summary">${items.length} ${filter.status === 'ativas' ? 'ocorrências ativas' : 'ocorrências no mapa'}</div>${maps.switcher()}<div class="map-tools"><button class="icon-button" data-action="zoom-in" aria-label="Aproximar mapa">${icon('plus')}</button><button class="icon-button" data-action="zoom-out" aria-label="Afastar mapa">${icon('minus')}</button><button class="icon-button" data-action="center-map" aria-label="Centralizar mapa do campus">${icon('target')}</button></div><div class="map-bottom"><button class="register-fab" data-action="new">${icon('plus')}Registrar ocorrência</button><div id="map-preview">${mapPreview(items.find(o => o.id === selectedId))}</div></div></div>`;
+    return `<div class="map-stage"><div id="campus-map" class="real-campus-map" aria-label="Mapa real da UFV, campus Viçosa"></div><div class="map-summary">${items.length} ${filter.status === 'ativas' ? 'ocorrências ativas' : 'ocorrências no mapa'}</div>${maps.switcher()}<div class="map-tools"><button class="icon-button" data-action="zoom-in" aria-label="Aproximar mapa">${icon('plus')}</button><button class="icon-button" data-action="zoom-out" aria-label="Afastar mapa">${icon('minus')}</button><button class="icon-button" data-action="center-map" aria-label="Centralizar mapa do campus">${icon('target')}</button></div><div class="map-bottom"><button class="register-fab" data-action="new">${icon('plus')}Registrar ocorrência</button><div id="map-preview">${mapPreview(items.find(o => o.id === selectedId), !items.length)}</div></div></div>`;
   }
   function mapScreen() {
     const count = [filter.category, filter.sector, filter.status !== 'ativas' ? filter.status : ''].filter(Boolean).length;
@@ -185,7 +187,13 @@
   function newScreen(step) {
     let content, footer;
     if (step === 1) {
-      content = `<h2 class="form-title">Onde está o problema?</h2><p class="form-intro">Arraste e aproxime o mapa real do campus. Toque para marcar o local.</p><div class="picker-map-wrap"><div class="picker-map" id="location-picker" tabindex="0" aria-label="Selecionar localização no campus. Use as setas para deslocar o mapa e Enter para marcar o centro."></div>${maps.switcher()}</div><div class="picker-helper" id="location-selection">${icon('pin')}<span>${draft.location ? esc(draft.location) : 'Nenhum local selecionado'}</span></div><small class="coordinate-label" id="selected-coordinates">${draft.lat !== null ? `${draft.lat.toFixed(6)}, ${draft.lng.toFixed(6)}` : 'A localização será salva com latitude e longitude.'}</small><span class="location-label">Ou escolha um ponto de referência:</span><div class="location-presets">${geo.places.slice(0, 3).map(place => `<button class="chip" data-action="location-preset" data-name="${esc(place.name)}" data-lat="${place.lat}" data-lng="${place.lng}">${esc(place.name)}</button>`).join('')}</div><div class="field-error" id="location-error" role="alert"></div>`;
+      content = `<h2 class="form-title">Onde está o problema?</h2><p class="form-intro">Arraste e aproxime o mapa real do campus. Toque para marcar o local e identificar seu nome.</p>
+        <div class="picker-map-wrap"><div class="picker-map" id="location-picker" tabindex="0" aria-label="Selecionar localização no campus. Use as setas para deslocar o mapa e Enter para marcar o centro."></div>${maps.switcher()}</div>
+        <div class="picker-helper" id="location-selection" role="status" aria-live="polite">${icon('pin')}<span>${draft.location ? esc(draft.location) : 'Nenhum local selecionado'}</span></div>
+        <small class="coordinate-label" id="selected-coordinates">${draft.lat !== null ? `${draft.lat.toFixed(6)}, ${draft.lng.toFixed(6)}` : 'A localização será salva com latitude e longitude.'}</small>
+        <label class="field location-name-field" id="location-name-field"${draft.lat === null ? ' hidden' : ''}><span>Nome do local <small>editável</small></span><input id="location-name" value="${draft.locationSource === 'coordinates' ? '' : esc(draft.location)}" placeholder="Nome identificado no mapa ou informado por você" maxlength="160" autocomplete="off" aria-describedby="location-name-help"><small class="field-hint" id="location-name-help">${locationHint()}</small></label>
+        <button class="text-button retry-location-name" data-action="retry-location-name"${draft.locationStatus === 'fallback' ? '' : ' hidden'}>Consultar nome novamente ${icon('arrow')}</button>
+        <span class="location-label">Ou escolha um ponto de referência:</span><div class="location-presets">${geo.places.slice(0, 3).map(place => `<button class="chip" data-action="location-preset" data-name="${esc(place.name)}" data-lat="${place.lat}" data-lng="${place.lng}">${esc(place.name)}</button>`).join('')}</div><div class="field-error" id="location-error" role="alert"></div>`;
       footer = `<button class="primary-button wide" data-action="new-next" data-step="1">Continuar ${icon('arrow')}</button>`;
     } else if (step === 2) {
       content = `<h2 class="form-title">Conte o que você encontrou.</h2><p class="form-intro">Um relato claro ajuda a equipe a entender o problema.</p><form id="occurrence-form"><span class="field-label">Qual é a categoria?</span><div class="category-options">${data.categories.filter(c => c.active && sector(c.sector)?.active).map(c => `<label class="category-option"><input type="radio" name="category" value="${c.id}"${draft.category === c.id ? ' checked' : ''} required><span>${icon(c.icon)}${esc(c.name)}</span></label>`).join('')}</div><label class="field"><span>O que aconteceu?</span><textarea name="description" placeholder="Descreva o problema e como encontrá-lo…" required minlength="10" maxlength="1500">${esc(draft.description)}</textarea><small class="field-hint">Pelo menos 10 caracteres.</small></label><label class="field"><span>Ponto de referência <small>opcional</small></span><input name="reference" value="${esc(draft.reference)}" placeholder="Ex.: entrada lateral, próximo à rampa" maxlength="160"></label><label class="upload-field" id="upload-label">${draft.photo ? `<img src="${esc(draft.photo)}" alt="Prévia da foto selecionada">` : icon('camera')}<span>${draft.photo ? 'Trocar foto' : 'Adicionar uma foto · opcional'}</span><input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" aria-label="Adicionar foto do problema"><small class="field-hint">JPG, PNG ou WebP · até 2 MB</small></label><div id="routing-preview">${draft.category ? routingNote() : ''}</div></form>`;
@@ -197,16 +205,58 @@
     return `${pageHeader('Registrar ocorrência', step === 1 ? 'mapa' : `novo/${step-1}`)}${stepper(step)}<div class="app-scroll"><div class="page-content">${content}</div></div><div class="form-bottom">${footer}</div>`;
   }
   function routingNote() { return `<div class="routing-note">${icon('transfer')}<span>Encaminhamento inicial:<br><b>${esc(sector(cat(draft.category)?.sector)?.name || 'Selecione uma categoria')}</b></span></div>`; }
-  function selectLocation(lat, lng, name) {
+  function cancelLocationLookup() {
+    if (!locationLookup) return;
+    clearTimeout(locationLookup.timer);
+    locationLookup.controller.abort();
+    locationLookup = null;
+  }
+  function locationHint() {
+    if (draft.locationStatus === 'loading') return 'Buscando o nome do local. Você também pode informá-lo manualmente.';
+    if (draft.locationStatus === 'resolved') return 'Nome sugerido pelos dados do OpenStreetMap. Confira e corrija se necessário.';
+    if (draft.locationStatus === 'manual') return 'Nome informado por você. As coordenadas do ponto marcado serão mantidas.';
+    if (draft.locationStatus === 'fallback') return 'Não foi possível identificar um nome. As coordenadas estão preservadas; você pode informar o nome ou continuar.';
+    return 'O nome será consultado quando você marcar um ponto no mapa.';
+  }
+  function updateLocationUI(syncName = true) {
+    const selection = document.querySelector('#location-selection');
+    if (!selection) return;
+    selection.querySelector('span').textContent = draft.locationStatus === 'loading' ? 'Buscando nome do local…' : draft.location || 'Nenhum local selecionado';
+    selection.setAttribute('aria-busy', draft.locationStatus === 'loading');
+    document.querySelector('#selected-coordinates').textContent = draft.lat !== null ? `${draft.lat.toFixed(6)}, ${draft.lng.toFixed(6)}` : 'A localização será salva com latitude e longitude.';
+    document.querySelector('#location-name-field').hidden = draft.lat === null;
+    if (syncName) document.querySelector('#location-name').value = draft.locationSource === 'coordinates' ? '' : draft.location;
+    document.querySelector('#location-name-help').textContent = locationHint();
+    document.querySelector('[data-action="retry-location-name"]').hidden = draft.locationStatus !== 'fallback';
+    document.querySelector('[data-action="new-next"]').disabled = draft.locationStatus === 'loading';
+  }
+  function selectLocation(lat, lng, presetName) {
     if (!geo.inArea(lat, lng)) {
       const el = document.querySelector('#location-error'); if (el) el.textContent = 'Marque um local na área de referência do campus Viçosa.'; return;
     }
-    const nearest = geo.nearest(lat, lng);
-    draft.lat = +lat.toFixed(7); draft.lng = +lng.toFixed(7); draft.location = name || `Próximo a ${nearest.name}`;
-    maps.pickerPin(draft.lat, draft.lng, icon, Boolean(name));
-    const label = document.querySelector('#location-selection span'); if (label) label.textContent = draft.location;
-    const coordinates = document.querySelector('#selected-coordinates'); if (coordinates) coordinates.textContent = `${draft.lat.toFixed(6)}, ${draft.lng.toFixed(6)}`;
+    cancelLocationLookup();
+    const selected = draft;
+    selected.lat = +lat.toFixed(7); selected.lng = +lng.toFixed(7);
+    selected.location = 'Ponto selecionado no campus';
+    selected.locationStatus = 'loading'; selected.locationSource = 'coordinates'; selected.locationMetadata = null;
+    maps.pickerPin(selected.lat, selected.lng, icon, Boolean(presetName));
     const error = document.querySelector('#location-error'); if (error) error.textContent = '';
+    updateLocationUI();
+    const controller = new AbortController();
+    const lookup = { controller, timer: setTimeout(async () => {
+      try {
+        const result = await geocoder.reverse(selected.lat, selected.lng, { signal: controller.signal });
+        if (controller.signal.aborted || draft !== selected) return;
+        selected.location = result.label; selected.locationStatus = 'resolved'; selected.locationSource = 'photon'; selected.locationMetadata = result;
+      } catch {
+        if (controller.signal.aborted || draft !== selected) return;
+        selected.locationStatus = 'fallback';
+      } finally {
+        if (!controller.signal.aborted && draft === selected) updateLocationUI();
+        if (locationLookup === lookup) locationLookup = null;
+      }
+    }, 400) };
+    locationLookup = lookup;
   }
 
   function localDate(value) { return new Date(value).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }); }
@@ -263,6 +313,10 @@
   }
   function render() {
     const parts = route().split('/'); let screen = parts[0];
+    if (screen !== 'novo') {
+      cancelLocationLookup();
+      if (draft.locationStatus === 'loading') draft.locationStatus = 'fallback';
+    }
     if (!user() && !['entrada','cadastro'].includes(screen)) { go('entrada'); return; }
     if (screen === 'demandas' && !user().sectors.length) { notify('O atendimento exige vínculo com um setor.', true); go('mapa'); return; }
     if (screen === 'configuracao' && user().role !== 'admin') { notify('Esta área é exclusiva da administração.', true); go('mapa'); return; }
@@ -282,10 +336,12 @@
       let step = Number(parts[1]) || 1;
       if (step < 1 || step > 3) { go('novo/1'); return; }
       if (step > 1 && draft.lat === null) { go('novo/1'); return; }
+      if (step > 1 && draft.locationStatus === 'loading') { go('novo/1'); return; }
       if (step === 3 && (!draft.category || draft.description.trim().length < 10)) { go('novo/2'); return; }
       app.innerHTML = newScreen(step);
     } else { go('mapa'); return; }
     renderProfiles(); renderGuide(screen); mountMaps();
+    if (screen === 'novo') updateLocationUI();
   }
   function openSheet(title, content) {
     sheet.innerHTML = `<div class="sheet-heading"><h2>${esc(title)}</h2><button class="icon-button" data-action="close-sheet" aria-label="Fechar">${icon('close')}</button></div>${content}`;
@@ -341,9 +397,10 @@
     else if (action === 'active-filter') { filter.status = filter.status === 'ativas' ? '' : 'ativas'; render(); }
     else if (action === 'clear-filters') { filter = { category: '', status: 'ativas', sector: '' }; search = ''; if (sheet.open) sheet.close(); render(); }
     else if (action === 'zoom-in' || action === 'zoom-out' || action === 'center-map') maps.control(action);
-    else if (action === 'new') { draft = freshDraft(); go('novo/1'); }
-    else if (action === 'new-next') { if (draft.lat === null) document.querySelector('#location-error').textContent = 'Selecione o local do problema para continuar.'; else go('novo/2'); }
+    else if (action === 'new') { cancelLocationLookup(); draft = freshDraft(); go('novo/1'); }
+    else if (action === 'new-next') { if (draft.lat === null) document.querySelector('#location-error').textContent = 'Selecione o local do problema para continuar.'; else if (draft.locationStatus !== 'loading') go('novo/2'); }
     else if (action === 'location-preset') selectLocation(Number(control.dataset.lat), Number(control.dataset.lng), control.dataset.name);
+    else if (action === 'retry-location-name' && draft.lat !== null) selectLocation(draft.lat, draft.lng);
     else if (action === 'publish-occurrence') publishOccurrence();
     else if (action === 'mine-tab') { mineTab = value; listStatus = ''; render(); }
     else if (action === 'detail-tab') { detailTab = value; render(); }
@@ -369,14 +426,21 @@
   });
 
   document.addEventListener('input', event => {
+    if (event.target.id === 'location-name' && draft.lat !== null) {
+      cancelLocationLookup();
+      const name = event.target.value.trim();
+      draft.location = name || 'Ponto selecionado no campus';
+      draft.locationStatus = name ? 'manual' : 'fallback'; draft.locationSource = name ? 'manual' : 'coordinates'; draft.locationMetadata = null;
+      updateLocationUI(false);
+    }
     if (event.target.id === 'map-search') {
       search = event.target.value;
       const items = filteredOccurrences();
-      if (!items.some(o => o.id === selectedId)) selectedId = items[0]?.id;
+      if (selectedId !== null && !items.some(o => o.id === selectedId)) selectedId = items[0]?.id;
       if (mapList) document.querySelector('#map-body').innerHTML = mapBody();
       else {
         maps.updateMarkers(items, selectedId);
-        document.querySelector('#map-preview').innerHTML = mapPreview(items.find(o => o.id === selectedId));
+        document.querySelector('#map-preview').innerHTML = mapPreview(items.find(o => o.id === selectedId), !items.length);
         document.querySelector('.map-summary').textContent = `${items.length} ${filter.status === 'ativas' ? 'ocorrências ativas' : 'ocorrências no mapa'}`;
       }
     }
@@ -423,14 +487,14 @@
     } catch { notify('Não foi possível ler esta imagem. Escolha outra foto.', true); }
   }
   function publishOccurrence() {
-    if (!user() || draft.lat === null || !geo.inArea(draft.lat, draft.lng) || draft.description.trim().length < 10 || !cat(draft.category)?.active || !sector(cat(draft.category).sector)?.active) { notify('Revise o local, a categoria e a descrição antes de enviar.', true); return; }
+    if (!user() || draft.lat === null || draft.locationStatus === 'loading' || !geo.inArea(draft.lat, draft.lng) || draft.description.trim().length < 10 || !cat(draft.category)?.active || !sector(cat(draft.category).sector)?.active) { notify('Revise o local, a categoria e a descrição antes de enviar.', true); return; }
     let newId;
     const success = commit(next => {
       newId = String(next.nextId++).padStart(3,'0');
       const timestamp = now(); const category = next.categories.find(c => c.id === draft.category);
       const description = draft.description.trim();
       const firstSentence = description.split(/[.!?\n]/)[0];
-      next.occurrences.unshift({ id: newId, title: firstSentence.length > 76 ? firstSentence.slice(0,73)+'…' : firstSentence, description, category: category.id, sector: category.sector, status: 'registrada', location: draft.location, lat: draft.lat, lng: draft.lng, coordinateSource: 'map-click', reference: draft.reference.trim(), photo: draft.photo, author: userId, createdAt: timestamp, resolvedAt: null, baseConfirmations: 0, confirmations: [], contributions: [], history: [{ title: 'Ocorrência registrada', text: `Encaminhada para ${next.sectors.find(s => s.id === category.sector).name.toLowerCase()}.`, author: userId, date: timestamp, status: 'registrada' }] });
+      next.occurrences.unshift({ id: newId, title: firstSentence.length > 76 ? firstSentence.slice(0,73)+'…' : firstSentence, description, category: category.id, sector: category.sector, status: 'registrada', location: draft.location, lat: draft.lat, lng: draft.lng, coordinateSource: 'map-click', locationSource: draft.locationSource, locationMetadata: draft.locationMetadata, reference: draft.reference.trim(), photo: draft.photo, author: userId, createdAt: timestamp, resolvedAt: null, baseConfirmations: 0, confirmations: [], contributions: [], history: [{ title: 'Ocorrência registrada', text: `Encaminhada para ${next.sectors.find(s => s.id === category.sector).name.toLowerCase()}.`, author: userId, date: timestamp, status: 'registrada' }] });
     }, 'Ocorrência registrada e encaminhada ao setor.');
     if (success) { draft = freshDraft(); selectedId = newId; detailTab = 'details'; backTarget = 'acompanhar'; go(`ocorrencia/${newId}`); }
   }

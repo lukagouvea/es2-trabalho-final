@@ -36,9 +36,6 @@ window.CampusGeo = (() => {
   function inArea(lat, lng) {
     return Number.isFinite(lat) && Number.isFinite(lng) && lat >= bounds[0][0] && lat <= bounds[1][0] && lng >= bounds[0][1] && lng <= bounds[1][1];
   }
-  function nearest(lat, lng) {
-    return places.slice().sort((a, b) => Math.hypot(a.lat - lat, (a.lng - lng) * Math.cos(lat * Math.PI / 180)) - Math.hypot(b.lat - lat, (b.lng - lng) * Math.cos(lat * Math.PI / 180)))[0];
-  }
   function migrate(data) {
     let changed = false;
     for (const occurrence of data.occurrences) {
@@ -63,5 +60,5 @@ window.CampusGeo = (() => {
     if (data.geoVersion !== 1) { data.geoVersion = 1; changed = true; }
     return changed;
   }
-  return { center, bounds, places, layers, inArea, nearest, migrate, googleUrl: 'https://www.google.com/maps?q=-20.760506,-42.869627&t=k', zoom: 16 };
+  return { center, bounds, places, layers, inArea, migrate, googleUrl: 'https://www.google.com/maps?q=-20.760506,-42.869627&t=k', zoom: 16 };
 })();
