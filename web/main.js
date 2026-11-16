@@ -4,6 +4,7 @@ import {
   api,
   allPages,
   invalidateRequests,
+  onMutation,
   StaleRequest,
 } from "./client.js";
 import { icon } from "./icons.js";
@@ -335,84 +336,208 @@ function mountMaps() {
     maps.mountPicker({ draft, icon, onSelect: selectLocation });
   if (document.querySelector("#review-map")) maps.mountReview({ draft, icon });
 }
-async function refresh({ userQuery = "" } = {}) {
+// Business data lives only in this session's memory. Signed photo URLs expire
+// after five minutes; the shorter view TTL also applies to occurrence details.
+const cacheTtl = 30_000;
+let contextFetchedAt = 0,
+  contextPending = null,
+  viewGeneration = 0,
+  adminUserQuery = "";
+const viewCache = new Map();
+const contextIsFresh = () =>
+  Boolean(me && Date.now() - contextFetchedAt < cacheTtl);
+function invalidateViews({ context = false } = {}) {
+  viewGeneration++;
+  viewCache.clear();
+  ++loadVersion;
+  controller?.abort();
+  contextPending?.controller.abort();
+  contextPending = null;
+  if (context) contextFetchedAt = 0;
+}
+onMutation((path) =>
+  invalidateViews({ context: /^\/(me|admin)(\/|$)/.test(path) }),
+);
+function ensureContext() {
+  if (contextIsFresh()) return Promise.resolve();
+  if (contextPending) return contextPending.promise;
+  const pending = {
+    controller: new AbortController(),
+    generation: viewGeneration,
+    auth: authGeneration,
+    promise: null,
+  };
+  contextPending = pending;
+  pending.promise = api("/bootstrap", { signal: pending.controller.signal })
+    .then((result) => {
+      if (
+        pending.auth !== authGeneration ||
+        pending.generation !== viewGeneration
+      )
+        throw new StaleRequest();
+      if (
+        !result?.profile ||
+        !Array.isArray(result.catalog?.sectors) ||
+        !Array.isArray(result.catalog?.categories)
+      )
+        throw new Error("Não foi possível carregar os dados da conta.");
+      me = result.profile;
+      catalog = result.catalog;
+      contextFetchedAt = Date.now();
+    })
+    .finally(() => {
+      if (contextPending === pending) contextPending = null;
+    });
+  return pending.promise;
+}
+function requestedView(path) {
+  let keyParts = [session.user.id, path],
+    load = null;
+  if (["mapa", "acompanhar", "demandas"].includes(path)) {
+    const requestedScope =
+      path === "demandas" ? "assigned" : path === "acompanhar" ? scope : "all";
+    const params = new URLSearchParams(
+      Object.entries(filters).filter(([, value]) => value),
+    );
+    params.set("scope", requestedScope);
+    keyParts.push(params.toString());
+    load = async (signal) => ({
+      items: await allPages(`/occurrences?${params}`, signal),
+    });
+  } else if (path.startsWith("ocorrencia/")) {
+    const id = encodeURIComponent(path.split("/")[1]);
+    load = async (signal) => {
+      const [detail, events, contributions] = await Promise.all([
+        api(`/occurrences/${id}`, { signal }),
+        allPages(`/occurrences/${id}/events`, signal),
+        allPages(`/occurrences/${id}/contributions`, signal),
+      ]);
+      return { detail, events, contributions };
+    };
+  } else if (path === "estatisticas") {
+    const params = new URLSearchParams(dates);
+    keyParts.push(params.toString());
+    load = async (signal) => ({
+      stats: await api(`/statistics?${params}`, { signal }),
+    });
+  } else if (path === "configuracao") {
+    keyParts.push(configTab, adminUserQuery);
+    if (configTab === "users" && (!me || me.isAdmin))
+      load = async (signal) => ({
+        users: await allPages(
+          `/admin/users?q=${encodeURIComponent(adminUserQuery)}`,
+          signal,
+        ),
+      });
+  }
+  return { key: JSON.stringify(keyParts), load };
+}
+function cachedView(key) {
+  const cached = viewCache.get(key);
+  if (!cached || Date.now() - cached.at >= cacheTtl) {
+    viewCache.delete(key);
+    return null;
+  }
+  return cached;
+}
+function rememberView(key, data) {
+  for (const [oldKey, value] of viewCache)
+    if (Date.now() - value.at >= cacheTtl) viewCache.delete(oldKey);
+  if (viewCache.size >= 50) viewCache.delete(viewCache.keys().next().value);
+  viewCache.set(key, { at: Date.now(), data });
+}
+function applyView(data) {
+  if ("items" in data) items = data.items;
+  if ("detail" in data) {
+    detail = data.detail;
+    events = data.events;
+    contributions = data.contributions;
+  }
+  if ("stats" in data) stats = data.stats;
+  if ("users" in data) users = data.users;
+}
+async function refresh({ userQuery, force = false, onlyIfStale = false } = {}) {
   if (!session || !configured) {
     loading = false;
     render();
     return;
   }
+  if (userQuery !== undefined) adminUserQuery = userQuery;
+  if (force) invalidateViews({ context: true });
+  const view = requestedView(route()),
+    cached = force ? null : cachedView(view.key);
+  if (onlyIfStale && contextIsFresh() && (!view.load || cached)) return;
   const version = ++loadVersion,
-    path = route();
+    generation = viewGeneration,
+    auth = authGeneration;
   controller?.abort();
   controller = new AbortController();
   const signal = controller.signal;
-  loading = true;
+  const valid = () =>
+    version === loadVersion &&
+    generation === viewGeneration &&
+    auth === authGeneration;
+  let ready = !view.load || Boolean(cached),
+    failed = false;
+  if (cached) applyView(cached.data);
   loadError = "";
-  render();
-  try {
-    const [profile, catalogs] = await Promise.all([
-      api("/me", { signal }),
-      api("/catalog", { signal }),
-    ]);
-    if (version !== loadVersion) return;
-    me = profile;
-    catalog = catalogs;
-    if (path === "mapa" || path === "acompanhar" || path === "demandas") {
-      const params = new URLSearchParams(
-        Object.entries(filters).filter(([, value]) => value),
-      );
-      params.set(
-        "scope",
-        path === "demandas"
-          ? "assigned"
-          : path === "acompanhar"
-            ? scope
-            : "all",
-      );
-      const result = await allPages(`/occurrences?${params}`, signal);
-      if (version !== loadVersion) return;
-      items = result;
-    } else if (path.startsWith("ocorrencia/")) {
-      const id = path.split("/")[1];
-      const result = await Promise.all([
-        api(`/occurrences/${encodeURIComponent(id)}`, { signal }),
-        allPages(`/occurrences/${encodeURIComponent(id)}/events`, signal),
-        allPages(
-          `/occurrences/${encodeURIComponent(id)}/contributions`,
-          signal,
-        ),
-      ]);
-      if (version !== loadVersion) return;
-      [detail, events, contributions] = result;
-    } else if (path === "estatisticas") {
-      const result = await api(`/statistics?${new URLSearchParams(dates)}`, {
-        signal,
-      });
-      if (version !== loadVersion) return;
-      stats = result;
-    } else if (path === "configuracao" && configTab === "users" && me.isAdmin) {
-      const result = await allPages(
-        `/admin/users?q=${encodeURIComponent(userQuery)}`,
-        signal,
-      );
-      if (version !== loadVersion) return;
-      users = result;
-    }
-    if (version !== loadVersion) return;
+  if (contextIsFresh() && ready) {
     loading = false;
     render();
+    return;
+  }
+  const showReady = () => {
+    if (!valid() || failed || !me || !ready) return;
+    loading = false;
+    loadError = "";
+    if (!routeDirty && !sheet.open && !app.querySelector("[data-busy]"))
+      render();
+  };
+  loading = !(me && ready);
+  render();
+  // Bootstrap is shared between navigations and has its own cancellation. Route
+  // requests start independently, so cold navigation costs the slower request.
+  const contextTask = ensureContext()
+    .then(showReady)
+    .catch((error) => {
+      if (
+        !valid() ||
+        error.name === "AbortError" ||
+        error instanceof StaleRequest
+      )
+        throw error;
+      if (me) {
+        notify(error.message, true);
+        showReady();
+        return;
+      }
+      throw error;
+    });
+  const viewTask = ready
+    ? Promise.resolve()
+    : view.load(signal).then((data) => {
+        if (!valid()) throw new StaleRequest();
+        rememberView(view.key, data);
+        applyView(data);
+        ready = true;
+        showReady();
+      });
+  try {
+    await Promise.all([contextTask, viewTask]);
   } catch (error) {
     if (
-      version !== loadVersion ||
+      !valid() ||
       error.name === "AbortError" ||
       error instanceof StaleRequest
     )
       return;
+    failed = true;
     loading = false;
     loadError = error.message;
     render();
   }
 }
+
 function openSheet(titleText, content) {
   sheet.innerHTML = `<div class="sheet-heading"><h2 id="sheet-title">${esc(titleText)}</h2>${button(icon("close"), "close-sheet", 'aria-label="Fechar"', "icon-button")}</div>${content}`;
   if (!sheet.open) sheet.showModal();
@@ -929,7 +1054,7 @@ document.addEventListener("click", async (event) => {
   if (action === "go") {
     routeDirty = false;
     go(control.dataset.target);
-  } else if (action === "refresh") await refresh();
+  } else if (action === "refresh") await refresh({ force: true });
   else if (action === "close-sheet") sheet.close();
   else if (action === "auth-mode") {
     authMode = authMode === "signin" ? "signup" : "signin";
@@ -1019,6 +1144,8 @@ function setSession(next) {
   if (!changed) return;
   authGeneration++;
   invalidateRequests();
+  invalidateViews({ context: true });
+  adminUserQuery = "";
   ++loadVersion;
   controller?.abort();
   lookup?.abort();
@@ -1080,7 +1207,7 @@ window.addEventListener("focus", () => {
     !routeDirty &&
     !document.querySelector("[data-busy]")
   )
-    void refresh();
+    void refresh({ onlyIfStale: true });
 });
 async function start() {
   if (!configured) {

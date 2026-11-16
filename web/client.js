@@ -17,7 +17,25 @@ let generation = 0;
 export function invalidateRequests() {
   generation += 1;
 }
-export async function api(path, { method = "GET", body, signal } = {}) {
+let mutationListener = () => {};
+export function onMutation(listener) {
+  mutationListener = listener;
+}
+export async function api(path, options = {}) {
+  const mutating = options.method && options.method !== "GET";
+  const ownerGeneration = generation;
+  if (mutating) mutationListener(path);
+  try {
+    return await authenticatedRequest(path, options);
+  } finally {
+    // A delayed mutation from a previous session cannot invalidate the new account.
+    if (mutating && ownerGeneration === generation) mutationListener(path);
+  }
+}
+async function authenticatedRequest(
+  path,
+  { method = "GET", body, signal } = {},
+) {
   const version = generation;
   const {
     data: { session },

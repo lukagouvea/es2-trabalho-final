@@ -72,6 +72,9 @@ async function setup(context: BrowserContext) {
     contributions: [] as any[],
     uploads: [] as string[],
     averageResolutionHours: 7.5,
+    bootstrapDelay: 0,
+    routeDelay: 0,
+    apiRequests: [] as { path: string; method: string; at: number }[],
     ambiguousCreate: false,
     ambiguousContribution: false,
     createPayloads: [] as any[],
@@ -193,6 +196,19 @@ async function setup(context: BrowserContext) {
       return json({ Key: path, Id: "test-object" });
     }
     if (!path.startsWith("/api/")) return route.continue();
+    state.apiRequests.push({ path, method: request.method(), at: Date.now() });
+    if (path === "/api/bootstrap") {
+      if (state.bootstrapDelay)
+        await new Promise((resolve) =>
+          setTimeout(resolve, state.bootstrapDelay),
+        );
+      return json({
+        profile: state.me,
+        catalog: { sectors: state.sectors, categories: state.categories },
+      });
+    }
+    if (request.method() === "GET" && state.routeDelay)
+      await new Promise((resolve) => setTimeout(resolve, state.routeDelay));
     if (!request.headers().authorization?.startsWith("Bearer "))
       return fail("Sessão necessária", 401);
     if (path === "/api/me") {
@@ -663,9 +679,11 @@ test("saída ignora resposta atrasada sem expor dados da sessão anterior", asyn
   page,
   context,
 }) => {
+  await page.clock.install();
   const state = await setup(context);
   await login(page);
   await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await page.clock.fastForward(31000);
   state.delayedList = true;
   await page.evaluate(() => {
     location.hash = "/mapa";
@@ -902,3 +920,364 @@ for (const [hours, label] of [
     await expect(page.locator(".stat-side b")).toHaveText(label);
   });
 }
+
+test("contexto inicial e ocorrências começam em paralelo numa única inicialização", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  state.bootstrapDelay = 600;
+  await login(page);
+  const bootstrap = state.apiRequests.find((r) => r.path === "/api/bootstrap");
+  const list = state.apiRequests.find((r) => r.path === "/api/occurrences");
+  expect(bootstrap).toBeTruthy();
+  expect(list).toBeTruthy();
+  expect(list!.at - bootstrap!.at).toBeLessThan(250);
+  expect(
+    state.apiRequests.filter((r) => r.path === "/api/bootstrap"),
+  ).toHaveLength(1);
+  expect(
+    state.apiRequests.filter((r) =>
+      ["/api/me", "/api/catalog"].includes(r.path),
+    ),
+  ).toHaveLength(0);
+});
+
+test("conta e formulário abrem sem requisições e visitas recentes reaproveitam a tela", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  const initialCount = state.apiRequests.length;
+  state.bootstrapDelay = 1200;
+  state.routeDelay = 1200;
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Salvar meus dados" }),
+  ).toBeVisible({ timeout: 500 });
+  expect(state.apiRequests).toHaveLength(initialCount);
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  await expect(page.getByRole("heading", { name: "Nosso campus" })).toBeVisible(
+    { timeout: 500 },
+  );
+  expect(state.apiRequests).toHaveLength(initialCount);
+  await page
+    .getByRole("button", { name: "Registrar ocorrência", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Continuar para o problema" }),
+  ).toBeVisible({ timeout: 500 });
+  expect(state.apiRequests).toHaveLength(initialCount);
+  state.routeDelay = 0;
+  await page.getByRole("button", { name: "Panorama", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Panorama do campus" }),
+  ).toBeVisible();
+  const firstStats = state.apiRequests.filter(
+    (r) => r.path === "/api/statistics",
+  ).length;
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  state.routeDelay = 1200;
+  await page.getByRole("button", { name: "Panorama", exact: true }).click();
+  await expect(page.locator(".stat-side b")).toHaveText("7,5 h", {
+    timeout: 500,
+  });
+  expect(
+    state.apiRequests.filter((r) => r.path === "/api/statistics"),
+  ).toHaveLength(firstStats);
+});
+
+test("contexto vencido revalida em segundo plano sem bloquear conta e formulário", async ({
+  page,
+  context,
+}) => {
+  await page.clock.install();
+  const state = await setup(context);
+  await login(page);
+  const initialBootstraps = state.apiRequests.filter(
+    (r) => r.path === "/api/bootstrap",
+  ).length;
+  await page.clock.fastForward(31000);
+  state.bootstrapDelay = 1200;
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Salvar meus dados" }),
+  ).toBeVisible({ timeout: 500 });
+  await expect
+    .poll(
+      () => state.apiRequests.filter((r) => r.path === "/api/bootstrap").length,
+    )
+    .toBe(initialBootstraps + 1);
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Registrar ocorrência", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Continuar para o problema" }),
+  ).toBeVisible({ timeout: 500 });
+  await page
+    .getByLabel("Nome do local (opcional)", { exact: true })
+    .fill("Nome que ainda estou editando");
+  await page.waitForTimeout(1400);
+  await expect(
+    page.getByLabel("Nome do local (opcional)", { exact: true }),
+  ).toHaveValue("Nome que ainda estou editando");
+  expect(
+    state.apiRequests.filter((r) => r.path === "/api/bootstrap"),
+  ).toHaveLength(initialBootstraps + 1);
+});
+
+test("mutação invalida visitas recentes e alteração de contexto renova o catálogo", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  await details(page);
+  await page
+    .getByRole("button", { name: "Também observei este problema" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Você já confirmou" }),
+  ).toBeDisabled();
+  const listBefore = state.apiRequests.filter(
+    (r) => r.path === "/api/occurrences",
+  ).length;
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  await expect
+    .poll(
+      () =>
+        state.apiRequests.filter((r) => r.path === "/api/occurrences").length,
+    )
+    .toBeGreaterThan(listBefore);
+  await expect(page.locator(".row-location")).toContainText("1 confirmação");
+  const bootBefore = state.apiRequests.filter(
+    (r) => r.path === "/api/bootstrap",
+  ).length;
+  await page.getByRole("button", { name: "Gestão", exact: true }).click();
+  await page.getByRole("button", { name: "Adicionar setor" }).click();
+  await page.getByLabel("Nome", { exact: true }).fill("Novo setor persistido");
+  await page.getByRole("button", { name: "Salvar setor" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Novo setor persistido" }),
+  ).toBeVisible();
+  expect(
+    state.apiRequests.filter((r) => r.path === "/api/bootstrap").length,
+  ).toBeGreaterThan(bootBefore);
+});
+
+test("saída limpa contexto e telas recentes antes de entrar novamente", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  const before = state.apiRequests.filter(
+    (r) => r.path === "/api/bootstrap",
+  ).length;
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await page.getByRole("button", { name: "Sair da conta" }).click();
+  state.me.name = "Marina Nova Sessão";
+  await login(page);
+  await expect(page.getByText("Olá, Marina", { exact: true })).toBeVisible();
+  expect(
+    state.apiRequests.filter((r) => r.path === "/api/bootstrap"),
+  ).toHaveLength(before + 1);
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue(
+    "Marina Nova Sessão",
+  );
+});
+
+test("foco recente não repete consultas e foco após 30 segundos revalida", async ({
+  page,
+  context,
+}) => {
+  await page.clock.install();
+  const state = await setup(context);
+  await login(page);
+  const before = state.apiRequests.length;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(50);
+  expect(state.apiRequests).toHaveLength(before);
+  await page.clock.fastForward(31000);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect
+    .poll(
+      () => state.apiRequests.filter((r) => r.path === "/api/bootstrap").length,
+    )
+    .toBe(2);
+  await expect
+    .poll(
+      () =>
+        state.apiRequests.filter((r) => r.path === "/api/occurrences").length,
+    )
+    .toBeGreaterThan(1);
+  await expect(
+    page.getByRole("heading", { name: "Nosso campus" }),
+  ).toBeVisible();
+});
+
+test("chaves de telas distinguem busca, escopo e período", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  await page.getByLabel("Buscar local ou ocorrência").fill("Biblioteca");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect
+    .poll(() => state.listRequests.at(-1)?.searchParams.get("q"))
+    .toBe("Biblioteca");
+  await expect(
+    page.getByRole("heading", { name: "Nosso campus", exact: true }),
+  ).toBeVisible();
+  const searched = state.listRequests.length;
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Nosso campus" }),
+  ).toBeVisible();
+  expect(state.listRequests).toHaveLength(searched);
+  await page.getByLabel("Buscar local ou ocorrência").fill("Outra busca");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect
+    .poll(() => state.listRequests.at(-1)?.searchParams.get("q"))
+    .toBe("Outra busca");
+  expect(state.listRequests.length).toBeGreaterThan(searched);
+  await page.getByRole("button", { name: "Acompanhar", exact: true }).click();
+  await expect
+    .poll(() => state.listRequests.at(-1)?.searchParams.get("scope"))
+    .toBe("authored");
+  await page.getByRole("button", { name: "Confirmações", exact: true }).click();
+  await expect
+    .poll(() => state.listRequests.at(-1)?.searchParams.get("scope"))
+    .toBe("confirmed");
+  const confirmed = state.listRequests.length;
+  await page
+    .getByRole("button", { name: "Meus registros", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Acompanhar", exact: true }),
+  ).toBeVisible();
+  expect(state.listRequests).toHaveLength(confirmed);
+  await page.getByRole("button", { name: "Panorama", exact: true }).click();
+  await expect(page.locator(".stat-side b")).toHaveText("7,5 h");
+  const statsBefore = state.apiRequests.filter(
+    (r) => r.path === "/api/statistics",
+  ).length;
+  await page.getByLabel("Data inicial").fill("2026-01-01");
+  await page.getByLabel("Data final").fill("2026-01-31");
+  await page.getByRole("button", { name: "Consultar período" }).click();
+  await expect
+    .poll(
+      () =>
+        state.apiRequests.filter((r) => r.path === "/api/statistics").length,
+    )
+    .toBe(statsBefore + 1);
+});
+
+test("envio com resposta perdida invalida mapa recente mesmo sem sucesso recebido", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  await details(page);
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  const beforeWarm = state.listRequests.length;
+  await page.getByRole("button", { name: /Luminária apagada/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Também observei este problema" }),
+  ).toBeVisible();
+  expect(state.listRequests).toHaveLength(beforeWarm);
+  await page.route(`**/api/occurrences/${oid}/confirmations`, (route) => {
+    state.occurrences[0].hasConfirmed = true;
+    state.occurrences[0].confirmationCount = 1;
+    return route.abort("failed");
+  });
+  await page
+    .getByRole("button", { name: "Também observei este problema" })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Não foi possível conectar" }),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("button", { name: "Mapa", exact: true })
+    .click();
+  await expect(page.locator(".row-location")).toContainText("1 confirmação");
+  expect(state.listRequests.length).toBeGreaterThan(beforeWarm);
+});
+
+test("resposta de alteração da sessão anterior não aborta a entrada da nova conta", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  await login(page);
+  await details(page);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  let started = false;
+  await page.route(`**/api/occurrences/${oid}/confirmations`, async (route) => {
+    started = true;
+    await pending;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ confirmedByMe: true, inserted: true }),
+    });
+  });
+  await page
+    .getByRole("button", { name: "Também observei este problema" })
+    .click();
+  await expect.poll(() => started).toBe(true);
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await page.getByRole("button", { name: "Sair da conta" }).click();
+  const secondId = "88888888-8888-4888-8888-888888888888";
+  state.user.id = secondId;
+  state.user.email = "outra@example.org";
+  state.me.id = secondId;
+  state.me.name = "Outra Pessoa";
+  state.me.email = state.user.email;
+  state.bootstrapDelay = 700;
+  state.routeDelay = 700;
+  await page.getByLabel("E-mail", { exact: true }).fill(state.user.email);
+  await page.getByLabel("Senha", { exact: true }).fill("Campus123!");
+  await page.getByLabel("E-mail", { exact: true }).fill("outra@example.org");
+  await expect(page.getByLabel("E-mail", { exact: true })).toHaveValue(
+    "outra@example.org",
+  );
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect
+    .poll(
+      () => state.apiRequests.filter((r) => r.path === "/api/bootstrap").length,
+    )
+    .toBe(2);
+  finish();
+  await expect(
+    page.getByRole("heading", { name: "Nosso campus", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Conta", exact: true }).click();
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue(
+    "Outra Pessoa",
+  );
+});

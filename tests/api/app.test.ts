@@ -295,3 +295,154 @@ it("accepts canonical PostgreSQL UUIDs from the initial catalog", async () => {
   });
   expect(response.status).toBe(201);
 });
+
+describe("bootstrap and occurrence round trips", () => {
+  function transport(read: (url: URL) => unknown | Promise<unknown>) {
+    const urls: URL[] = [];
+    const db = createClient("https://supabase.example", "publishable", {
+      global: {
+        fetch: async (input) => {
+          const url = new URL(
+            input instanceof Request ? input.url : String(input),
+          );
+          urls.push(url);
+          const data = url.pathname.endsWith("/auth/v1/user")
+            ? { id, email: "me@example.test" }
+            : await read(url);
+          return new Response(JSON.stringify(data), {
+            headers: { "Content-Type": "application/json" },
+          });
+        },
+      },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const app = createApp({ clientFactory: () => db });
+    return {
+      urls,
+      app,
+      request: (path: string) =>
+        app.request("/api" + path, {
+          headers: { Authorization: "Bearer token" },
+        }),
+    };
+  }
+  it("bootstraps the same profile and catalog with one auth check and five concurrent reads", async () => {
+    const waiting: Array<() => void> = [];
+    const { request, urls } = transport(async (url) => {
+      await new Promise<void>((resolve) => waiting.push(resolve));
+      switch (url.pathname.split("/").at(-1)) {
+        case "profiles":
+          return { id, name: "Member" };
+        case "admin_roles":
+          return { user_id: id };
+        case "sector_memberships":
+          return [{ sector_id: id }];
+        case "sectors":
+          return [{ id, name: "Campus", active: true }];
+        case "categories":
+          return [{ id, name: "Luz", sector_id: id, active: true }];
+      }
+    });
+    const pending = request("/bootstrap");
+    try {
+      await vi.waitFor(() => expect(waiting).toHaveLength(5), { timeout: 500 });
+    } finally {
+      waiting.forEach((resolve) => resolve());
+    }
+    const response = await pending;
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      profile: {
+        id,
+        name: "Member",
+        email: "me@example.test",
+        isAdmin: true,
+        sectorIds: [id],
+      },
+      catalog: {
+        sectors: [{ id, name: "Campus", active: true }],
+        categories: [{ id, name: "Luz", sectorId: id, active: true }],
+      },
+    });
+    expect(
+      urls.filter((url) => url.pathname.endsWith("/auth/v1/user")),
+    ).toHaveLength(1);
+  });
+  it("does not read bootstrap data without a verified session", async () => {
+    const { app, urls } = transport(() => {
+      throw new Error("must not read");
+    });
+    expect((await app.request("/api/bootstrap")).status).toBe(401);
+    expect(urls).toHaveLength(0);
+  });
+  it.each(["/occurrences", `/occurrences/${id}`])(
+    "reads own confirmation inside %s without another database request",
+    async (path) => {
+      const row = {
+        id,
+        number: 42,
+        description: "Campus lamp",
+        author_id: id,
+        photo_path: null,
+        confirmations: [{ count: 3 }],
+        contributions: [{ count: 1 }],
+        occurrence_events: [{ count: 2 }],
+        my_confirmation: [{ user_id: id }],
+      };
+      const { request, urls } = transport((url) =>
+        url.pathname.endsWith("/occurrences")
+          ? path === "/occurrences"
+            ? [
+                row,
+                {
+                  ...row,
+                  id: "b0000000-0000-0000-0000-000000000001",
+                  my_confirmation: [],
+                },
+              ]
+            : row
+          : [],
+      );
+      const response = await request(path);
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      const items = path === "/occurrences" ? result.items : [result];
+      expect(items[0]).toMatchObject({
+        confirmedByMe: true,
+        hasConfirmed: true,
+        confirmationCount: 3,
+      });
+      expect(items[0]).not.toHaveProperty("myConfirmation");
+      if (path === "/occurrences")
+        expect(items[1]).toMatchObject({
+          confirmedByMe: false,
+          hasConfirmed: false,
+          confirmationCount: 3,
+        });
+      const reads = urls.filter((url) => url.pathname.includes("/rest/v1/"));
+      expect(reads).toHaveLength(1);
+      expect(reads[0].searchParams.get("my_confirmation.user_id")).toBe(
+        "eq." + id,
+      );
+      const select = reads[0].searchParams.get("select")!;
+      expect(select).toContain("my_confirmation:confirmations(user_id)");
+      expect(select).toContain("confirmations(count)");
+      expect(select).not.toContain("!inner");
+      expect(select).not.toContain("*");
+      expect(select).not.toContain("request_payload");
+      expect(select).not.toContain("geocoder_metadata");
+      expect(select).toContain("photo_path");
+    },
+  );
+  it("keeps the inner join only for the confirmed scope", async () => {
+    const { request, urls } = transport(() => []);
+    expect((await request("/occurrences?scope=confirmed")).status).toBe(200);
+    const url = urls.find((url) => url.pathname.endsWith("/occurrences"))!;
+    expect(url.searchParams.get("select")).toContain(
+      "own_confirmation:confirmations!inner(user_id)",
+    );
+    expect(url.searchParams.get("own_confirmation.user_id")).toBe("eq." + id);
+    expect(url.searchParams.get("my_confirmation.user_id")).toBe("eq." + id);
+  });
+});

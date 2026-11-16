@@ -89,6 +89,8 @@ A área geográfica é a referência aproximada do protótipo, não a divisa cad
 
 ## API
 
+`GET /api/bootstrap` reúne perfil e catálogo na inicialização. O frontend mantém contexto e telas por até 30 segundos somente em memória, invalida depois de alterações e limpa tudo ao trocar de conta. A função está configurada em Portland (`pdx1`), junto da região do banco hospedado atual (`us-west-2`); se o projeto de banco mudar de região, ajuste `regions` em `vercel.json`.
+
 Todas as rotas de negócio exigem `Authorization: Bearer <access_token>`. Somente `GET /api/health` é público. Os contratos estão no [desenho do backend](superpowers/specs/2026-11-15-backend-supabase-design.md). JSON usa camelCase; listagens retornam `{ items, nextCursor }`. O UUID `id` identifica o registro e `number` é o número exibido da ocorrência.
 
 `GET /api/occurrences` aceita `q`, `categoryId`, `sectorId`, `status`, `scope`, `cursor` e `limit` (padrão 50, máximo 100). `status=ativas` reúne registrada, análise e andamento. `scope` aceita `all`, `authored`, `confirmed` e `assigned`. Estatísticas aceitam `from` e `to` no formato `YYYY-MM-DD`, com dias inclusivos no calendário de São Paulo.

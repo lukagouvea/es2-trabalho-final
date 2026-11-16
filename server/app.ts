@@ -216,40 +216,55 @@ function buildSearchFilter(term: string, categoryIds: string[]) {
   return filters.join(",");
 }
 const occurrenceSelect =
-  "*,author:profiles!occurrences_author_id_fkey(id,name),confirmations(count),contributions(count),occurrence_events(count)";
-async function occurrenceDtos(db: SupabaseClient, rows: any[], userId: string) {
-  if (!rows.length) return [];
-  const { data, error } = await db
-    .from("confirmations")
-    .select("occurrence_id")
-    .eq("user_id", userId)
-    .in(
-      "occurrence_id",
-      rows.map((row) => row.id),
-    );
-  dbError(error);
-  const confirmed = new Set((data ?? []).map((row) => row.occurrence_id));
+  "id,number,author_id,category_id,sector_id,status,description,location_name,reference,latitude,longitude,location_source,photo_path,created_at,updated_at,resolved_at,author:profiles!occurrences_author_id_fkey(id,name),confirmations(count),contributions(count),occurrence_events(count),my_confirmation:confirmations(user_id)";
+function occurrenceDtos(rows: any[]) {
   return rows.map((row) => {
     const {
       confirmations,
       contributions,
       occurrence_events,
       photo_path,
-      request_id,
-      request_payload,
-      geocoder_metadata,
+      my_confirmation,
       own_confirmation,
       ...rest
     } = row;
+    const confirmed = (my_confirmation?.length ?? 0) > 0;
     return {
       ...dto(rest),
       confirmationCount: confirmations?.[0]?.count ?? 0,
       contributionCount: contributions?.[0]?.count ?? 0,
       eventCount: occurrence_events?.[0]?.count ?? 0,
-      confirmedByMe: confirmed.has(row.id),
-      hasConfirmed: confirmed.has(row.id),
+      confirmedByMe: confirmed,
+      hasConfirmed: confirmed,
     };
   });
+}
+async function readProfile(
+  db: SupabaseClient,
+  id: string,
+  email: string | undefined,
+) {
+  const [profile, roles, memberships] = await Promise.all([
+    db.from("profiles").select("id,name").eq("id", id).single(),
+    db.from("admin_roles").select("user_id").eq("user_id", id).maybeSingle(),
+    db.from("sector_memberships").select("sector_id").eq("user_id", id),
+  ]);
+  [profile, roles, memberships].forEach((result) => dbError(result.error));
+  return {
+    ...profile.data,
+    email,
+    isAdmin: !!roles.data,
+    sectorIds: memberships.data?.map((member) => member.sector_id) ?? [],
+  };
+}
+async function readCatalog(db: SupabaseClient) {
+  const [sectors, categories] = await Promise.all([
+    db.from("sectors").select("*").order("name"),
+    db.from("categories").select("*").order("name"),
+  ]);
+  dbError(sectors.error);
+  dbError(categories.error);
+  return { sectors: dto(sectors.data), categories: dto(categories.data) };
 }
 async function rpc(
   db: SupabaseClient,
@@ -338,39 +353,21 @@ export function createApp(config: Config = {}) {
     c.set("email", data.user.email);
     await next();
   });
-  app.get("/api/me", async (c) => {
-    const db = c.get("db"),
-      id = c.get("userId");
-    const [profile, roles, memberships] = await Promise.all([
-      db.from("profiles").select("id,name").eq("id", id).single(),
-      db.from("admin_roles").select("user_id").eq("user_id", id).maybeSingle(),
-      db.from("sector_memberships").select("sector_id").eq("user_id", id),
+  app.get("/api/bootstrap", async (c) => {
+    const [profile, catalog] = await Promise.all([
+      readProfile(c.get("db"), c.get("userId"), c.get("email")),
+      readCatalog(c.get("db")),
     ]);
-    [profile, roles, memberships].forEach((result) => dbError(result.error));
-    return c.json({
-      ...profile.data,
-      email: c.get("email"),
-      isAdmin: !!roles.data,
-      sectorIds: memberships.data?.map((member) => member.sector_id) ?? [],
-    });
+    return c.json({ profile, catalog });
   });
+  app.get("/api/me", async (c) =>
+    c.json(await readProfile(c.get("db"), c.get("userId"), c.get("email"))),
+  );
   app.patch("/api/me", async (c) => {
     const b = checked(z.object({ name: text(3, 80) }).strict(), await body(c));
     return c.json(await rpc(c.get("db"), "update_profile", { p_name: b.name }));
   });
-  app.get("/api/catalog", async (c) => {
-    const db = c.get("db");
-    const [sectors, categories] = await Promise.all([
-      db.from("sectors").select("*").order("name"),
-      db.from("categories").select("*").order("name"),
-    ]);
-    dbError(sectors.error);
-    dbError(categories.error);
-    return c.json({
-      sectors: dto(sectors.data),
-      categories: dto(categories.data),
-    });
-  });
+  app.get("/api/catalog", async (c) => c.json(await readCatalog(c.get("db"))));
   app.get("/api/occurrences", async (c) => {
     const p = checked(
       pageSchema.extend({
@@ -394,6 +391,7 @@ export function createApp(config: Config = {}) {
             ? ",own_confirmation:confirmations!inner(user_id)"
             : ""),
       )
+      .eq("my_confirmation.user_id", c.get("userId"))
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(p.limit + 1);
@@ -431,9 +429,7 @@ export function createApp(config: Config = {}) {
     }
     const { data, error } = await applyCursor(query, after);
     dbError(error);
-    return c.json(
-      page(await occurrenceDtos(db, data ?? [], c.get("userId")), p.limit),
-    );
+    return c.json(page(occurrenceDtos(data ?? []), p.limit));
   });
   app.post("/api/occurrences", async (c) => {
     const b = checked(occurrenceSchema, await body(c));
@@ -461,12 +457,13 @@ export function createApp(config: Config = {}) {
     const { data, error } = await db
       .from("occurrences")
       .select(occurrenceSelect)
+      .eq("my_confirmation.user_id", c.get("userId"))
       .eq("id", id)
       .maybeSingle();
     dbError(error);
     if (!data)
       throw new ApiError(404, "NOT_FOUND", "Ocorrência não encontrada.");
-    const [result] = await occurrenceDtos(db, [data], c.get("userId"));
+    const [result] = occurrenceDtos([data]);
     if (data.photo_path) {
       const signed = await db.storage
         .from("occurrence-photos")
@@ -679,7 +676,7 @@ export function createApp(config: Config = {}) {
   });
   const routes = [
     /^\/api\/health$/,
-    /^\/api\/(me|catalog|statistics|occurrences)$/,
+    /^\/api\/(me|bootstrap|catalog|statistics|occurrences)$/,
     /^\/api\/occurrences\/[^/]+(?:\/(events|contributions|confirmations|transitions|transfers))?$/,
     /^\/api\/admin\/(users|sectors|categories)$/,
     /^\/api\/admin\/(sectors|categories)\/[^/]+$/,

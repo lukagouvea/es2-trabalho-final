@@ -201,4 +201,47 @@ describe("Local Auth + API + PostgreSQL integration", () => {
       ).error,
     ).toBeTruthy();
   });
+  it("keeps unconfirmed records in left joins and counts other users independently", async () => {
+    const first = await (await request(`/occurrences/${occurrenceId}`)).json();
+    const created = await request("/occurrences", "POST", {
+      requestId: randomUUID(),
+      categoryId: first.categoryId,
+      description: "Segunda luminária ainda sem confirmação de testemunhas.",
+      latitude: -20.761367,
+      longitude: -42.8677889,
+      locationName: "Biblioteca",
+      locationSource: "manual",
+    });
+    expect(created.status).toBe(201);
+    const secondId = (await created.json()).id;
+    const all = await (
+      await request("/occurrences?scope=all", "GET", undefined, witnessToken)
+    ).json();
+    expect(all.items.find((row: any) => row.id === occurrenceId)).toMatchObject(
+      { confirmedByMe: true, confirmationCount: 1 },
+    );
+    expect(all.items.find((row: any) => row.id === secondId)).toMatchObject({
+      confirmedByMe: false,
+      confirmationCount: 0,
+    });
+    const authored = await (
+      await request("/occurrences?scope=authored")
+    ).json();
+    expect(
+      authored.items.find((row: any) => row.id === occurrenceId),
+    ).toMatchObject({ confirmedByMe: false, confirmationCount: 1 });
+    expect(authored.items.some((row: any) => row.id === secondId)).toBe(true);
+    const confirmed = await (
+      await request(
+        "/occurrences?scope=confirmed",
+        "GET",
+        undefined,
+        witnessToken,
+      )
+    ).json();
+    expect(confirmed.items.some((row: any) => row.id === occurrenceId)).toBe(
+      true,
+    );
+    expect(confirmed.items.some((row: any) => row.id === secondId)).toBe(false);
+  });
 });
