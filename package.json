@@ -1,0 +1,43 @@
+{
+  "name": "campus-em-dia",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"tsx watch --env-file=.env.local server/dev.ts\"",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "bash tests/db/isolated.sh",
+    "test:integration": "CAMPUS_INTEGRATION=1 vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:prototype": "node scripts/test-prototype.cjs",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset --local",
+    "uploads:clean": "tsx --env-file=.env.local scripts/clean-uploads.ts",
+    "format": "prettier --write server api web/*.js web/*.html web/public/application.css scripts tests *.config.ts tsconfig.json package.json vercel.json",
+    "format:check": "prettier --check server api web/*.js web/*.html web/public/application.css scripts tests *.config.ts tsconfig.json package.json vercel.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.8",
+    "@supabase/supabase-js": "2.119.0",
+    "hono": "4.13.18",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "concurrently": "10.0.7",
+    "pg": "8.23.1",
+    "prettier": "3.10.1",
+    "supabase": "3.1.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

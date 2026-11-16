@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#285943" />
+    <meta
+      name="description"
+      content="Registre problemas no campus Viçosa e acompanhe o atendimento com a comunidade."
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Campus em dia · UFV Viçosa</title>
+    <link rel="icon" href="/assets/simbolo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/application.css" />
+    <script src="/assets/leaflet/leaflet.js" defer></script>
+    <script src="/map-data.js" defer></script>
+    <script src="/geocoding.js" defer></script>
+    <script src="/map.js" defer></script>
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#/mapa"
+        ><img src="/assets/simbolo.svg" alt="" width="40" height="40" /><span
+          >campus <strong>em dia</strong
+          ><small>UFV · CAMPUS VIÇOSA</small></span
+        ></a
+      ><span class="site-tagline">Da observação à resolução.</span>
+    </header>
+    <main id="app" class="app application" aria-live="polite">
+      <p class="startup">Carregando sua sessão…</p>
+    </main>
+    <dialog id="sheet" class="sheet" aria-labelledby="sheet-title"></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

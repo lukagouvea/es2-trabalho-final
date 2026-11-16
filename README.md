@@ -832,3 +832,7 @@ As fontes PlantUML dos quatro diagramas acompanham os SVGs em `diagramas_concepc
 
 **Ajustes da versão 0.3:** requisitos apresentados em tabelas com células mescladas, seguindo o modelo visual fornecido; conteúdo a partir da seção 4.3 preservado em comentário HTML para apoio à revisão.
 -->
+
+## Aplicação web com backend
+
+A evolução conectada usa Node.js/TypeScript na Vercel e Supabase para Auth, PostgreSQL e fotos. Consulte [execução, testes e publicação](docs/EXECUCAO.md). O protótipo Android navegável permanece em `prototipo/`; a entrega atual inclui uma aplicação web responsiva.

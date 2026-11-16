@@ -1,0 +1,2 @@
+-- Initial catalogs are versioned in 202611150002_catalog.sql so db push applies them remotely.
+-- Keep environment-specific fixture accounts and occurrences out of this file.
