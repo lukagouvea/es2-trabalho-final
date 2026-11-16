@@ -1281,3 +1281,84 @@ test("resposta de alteração da sessão anterior não aborta a entrada da nova 
     "Outra Pessoa",
   );
 });
+
+test("mapa mostra somente ocorrências ativas e mantém finalizadas em Acompanhar", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  const base = { ...state.occurrences[0], authorId: uid };
+  state.occurrences = [
+    "resolvida",
+    "encerrada",
+    "registrada",
+    "analise",
+    "andamento",
+  ].map((status, index) => ({
+    ...base,
+    id: `44444444-4444-4444-8444-${String(index + 1).padStart(12, "0")}`,
+    number: index + 1,
+    status,
+    description: `Problema no campus com situação ${status}.`,
+    resolvedAt: status === "resolvida" ? now : null,
+  }));
+  await login(page);
+  await expect(
+    page.getByRole("heading", { name: "3 ocorrências encontradas" }),
+  ).toBeVisible();
+  await expect(page.locator("#campus-map .map-marker")).toHaveCount(3);
+  await expect(page.locator("#map-preview")).toContainText(
+    "situação registrada",
+  );
+  await expect(
+    page
+      .getByRole("combobox", { name: "Situação", exact: true })
+      .locator("option"),
+  ).toHaveText([
+    "Todas as situações",
+    "Registrada",
+    "Em análise",
+    "Em atendimento",
+  ]);
+  await page.getByRole("button", { name: "Ver lista", exact: true }).click();
+  await expect(page.locator(".occurrence-row")).toHaveCount(3);
+  await expect(page.locator(".occurrence-list")).not.toContainText(
+    "situação resolvida",
+  );
+  await expect(page.locator(".occurrence-list")).not.toContainText(
+    "situação encerrada",
+  );
+  await page.getByRole("button", { name: "Acompanhar", exact: true }).click();
+  await expect(page.locator(".occurrence-row")).toHaveCount(5);
+  await page
+    .getByRole("combobox", { name: "Situação", exact: true })
+    .selectOption("resolvida");
+  await page
+    .getByRole("button", { name: "Aplicar filtros", exact: true })
+    .click();
+  await expect(page.locator(".occurrence-row")).toHaveCount(1);
+  await expect(page.locator(".occurrence-list")).toContainText(
+    "situação resolvida",
+  );
+  await page.getByRole("button", { name: "Mapa", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "3 ocorrências encontradas" }),
+  ).toBeVisible();
+});
+
+test("mapa fica vazio quando todas as ocorrências estão finalizadas", async ({
+  page,
+  context,
+}) => {
+  const state = await setup(context);
+  state.occurrences[0].status = "encerrada";
+  await login(page);
+  await expect(
+    page.getByRole("heading", { name: "0 ocorrências encontradas" }),
+  ).toBeVisible();
+  await expect(page.locator("#campus-map .map-marker")).toHaveCount(0);
+  await expect(page.locator("#map-preview .map-preview")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Nenhuma ocorrência encontrada" }),
+  ).toBeVisible();
+});

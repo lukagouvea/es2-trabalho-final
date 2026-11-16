@@ -163,7 +163,11 @@ function row(o) {
   return `<button type="button" class="occurrence-row" data-action="detail" data-id="${o.id}">${catIcon(category(o.categoryId))}<div class="row-content"><div class="row-meta"><small>#${o.number} · ${date(o.createdAt)}</small>${badge(o.status)}</div><h3>${esc(title(o))}</h3><span class="row-location">${icon("pin")}${esc(o.locationName)} · ${o.confirmationCount} ${plural(o.confirmationCount, "confirmação", "confirmações")}</span></div>${icon("chevron")}</button>`;
 }
 function filterFields(queue = false) {
-  return `<div class="filter-grid"><label class="field"><span>Categoria</span><select name="categoryId">${options(catalog.categories, filters.categoryId, "Todas as categorias")}</select></label><label class="field"><span>Situação</span><select name="status">${options(statusItems, filters.status, "Todas as situações")}</select></label><label class="field"><span>Setor</span><select name="sectorId">${options(queue ? catalog.sectors.filter((s) => me.sectorIds.includes(s.id)) : catalog.sectors, filters.sectorId, queue ? "Meus setores" : "Todos os setores")}</select></label></div>`;
+  const visibleStatuses =
+    route() === "mapa"
+      ? statusItems.filter((s) => !terminal({ status: s.id }))
+      : statusItems;
+  return `<div class="filter-grid"><label class="field"><span>Categoria</span><select name="categoryId">${options(catalog.categories, filters.categoryId, "Todas as categorias")}</select></label><label class="field"><span>Situação</span><select name="status">${options(visibleStatuses, filters.status, "Todas as situações")}</select></label><label class="field"><span>Setor</span><select name="sectorId">${options(queue ? catalog.sectors.filter((s) => me.sectorIds.includes(s.id)) : catalog.sectors, filters.sectorId, queue ? "Meus setores" : "Todos os setores")}</select></label></div>`;
 }
 function searchForm(queue = false) {
   return `<form id="search-form" class="map-controls"><label class="search-field">${icon("search")}<input type="search" name="q" value="${esc(filters.q)}" placeholder="Busque um local ou ocorrência" aria-label="Buscar local ou ocorrência"></label>${window.matchMedia("(max-width:700px)").matches ? `<details class="filter-panel"><summary>${icon("filter")}Filtros de categoria, situação e setor</summary>${filterFields(queue)}</details>` : filterFields(queue)}<div class="inline-actions"><button class="secondary-button" type="submit">${icon("search")}Aplicar filtros</button>${button("Limpar", "clear-filters", "", "text-button")}${route() === "mapa" ? button(`${icon(mapList ? "map" : "list")}${mapList ? "Ver mapa" : "Ver lista"}`, "toggle-map", "", "text-button") : ""}</div></form>`;
@@ -394,6 +398,8 @@ function requestedView(path) {
   let keyParts = [session.user.id, path],
     load = null;
   if (["mapa", "acompanhar", "demandas"].includes(path)) {
+    if (path === "mapa" && terminal({ status: filters.status }))
+      filters.status = "";
     const requestedScope =
       path === "demandas" ? "assigned" : path === "acompanhar" ? scope : "all";
     const params = new URLSearchParams(
@@ -401,9 +407,12 @@ function requestedView(path) {
     );
     params.set("scope", requestedScope);
     keyParts.push(params.toString());
-    load = async (signal) => ({
-      items: await allPages(`/occurrences?${params}`, signal),
-    });
+    load = async (signal) => {
+      const results = await allPages(`/occurrences?${params}`, signal);
+      return {
+        items: path === "mapa" ? results.filter((o) => !terminal(o)) : results,
+      };
+    };
   } else if (path.startsWith("ocorrencia/")) {
     const id = encodeURIComponent(path.split("/")[1]);
     load = async (signal) => {
