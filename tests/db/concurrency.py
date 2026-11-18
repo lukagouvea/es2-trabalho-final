@@ -41,6 +41,12 @@ try:
         assert sum(r.returncode==0 for r in results)==1,[r.stderr for r in results]
         assert sql(f"select count(*) from occurrences o join sectors s on s.id=o.sector_id where not s.active and o.sector_id='{race_sector}';").stdout.strip()=='0'
         sql(f"delete from occurrence_events where occurrence_id in(select id from occurrences where sector_id='{race_sector}');delete from occurrences where sector_id='{race_sector}';delete from categories where id='{race_category}';delete from sectors where id='{race_sector}';")
+    # Distinct fields edited by independent admin sessions must both survive.
+    rename = prefix + f"select patch_sector('{sector}', p_name => 'Renamed {sector}');commit;"
+    describe = prefix + f"select patch_sector('{sector}', p_description => 'Updated details');commit;"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(sql, [rename, describe]))
+    assert sql(f"select name,description from sectors where id='{sector}';").stdout.strip() == f"Renamed {sector}|Updated details"
     # Storage DELETE and attachment contend for the same object row.
     for iteration in range(4):
         path=f"{user}/{uuid.uuid4()}.png"

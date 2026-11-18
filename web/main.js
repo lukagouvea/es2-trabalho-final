@@ -405,6 +405,7 @@ function requestedView(path) {
     const params = new URLSearchParams(
       Object.entries(filters).filter(([, value]) => value),
     );
+    if (path === "mapa" && !filters.status) params.set("status", "ativas");
     params.set("scope", requestedScope);
     keyParts.push(params.toString());
     load = async (signal) => {

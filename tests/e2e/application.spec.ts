@@ -294,6 +294,8 @@ async function setup(context: BrowserContext) {
           (!url.searchParams.get("sectorId") ||
             o.sectorId === url.searchParams.get("sectorId")) &&
           (!url.searchParams.get("status") ||
+            (url.searchParams.get("status") === "ativas" &&
+              ["registrada", "analise", "andamento"].includes(o.status)) ||
             o.status === url.searchParams.get("status")) &&
           (url.searchParams.get("scope") !== "confirmed" || o.hasConfirmed) &&
           (url.searchParams.get("scope") !== "authored" || o.authorId === uid),
@@ -1306,6 +1308,9 @@ test("mapa mostra somente ocorrências ativas e mantém finalizadas em Acompanha
   await expect(
     page.getByRole("heading", { name: "3 ocorrências encontradas" }),
   ).toBeVisible();
+  expect(
+    state.listRequests.map((url) => url.searchParams.get("status")),
+  ).toEqual(["ativas", "ativas"]);
   await expect(page.locator("#campus-map .map-marker")).toHaveCount(3);
   await expect(page.locator("#map-preview")).toContainText(
     "situação registrada",

@@ -110,6 +110,34 @@ describe("Local Auth + API + PostgreSQL integration", () => {
     expect((await r.json()).isAdmin).toBe(false);
     expect((await request("/admin/users")).status).toBe(403);
   });
+  it("renames an inactive sector through PostgREST without changing omitted fields", async () => {
+    const sectorId = randomUUID();
+    await database.query(
+      "insert into sectors(id, name, description, active) values ($1, $2, 'Descrição original', false)",
+      [sectorId, `Integration ${sectorId}`],
+    );
+    try {
+      await database.query("insert into admin_roles(user_id) values ($1)", [
+        fixtureIds[0],
+      ]);
+      const name = `Renamed ${sectorId}`;
+      const response = await request(`/admin/sectors/${sectorId}`, "PATCH", {
+        name,
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        id: sectorId,
+        name,
+        active: false,
+        description: "Descrição original",
+      });
+    } finally {
+      await database.query("delete from admin_roles where user_id = $1", [
+        fixtureIds[0],
+      ]);
+      await database.query("delete from sectors where id = $1", [sectorId]);
+    }
+  });
   it("persists an idempotent illumination occurrence in the matching catalog category", async () => {
     const catalog = await (await request("/catalog")).json();
     const category = catalog.categories.find(
