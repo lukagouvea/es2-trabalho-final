@@ -49,6 +49,53 @@ describe("API boundary", () => {
       ).status,
     ).toBe(401);
   });
+  it.each([
+    [401, 401],
+    [403, 401],
+    [0, 503],
+    [429, 503],
+    [500, 503],
+  ])("maps auth provider status %i to HTTP %i", async (status, expected) => {
+    const { client, request } = fixture();
+    client.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { status },
+    } as never);
+    expect((await request("/me")).status).toBe(expected);
+  });
+  it.each([
+    ["sectors", "patch_sector"],
+    ["categories", "patch_category"],
+  ])(
+    "sends only supplied fields when editing %s",
+    async (resource, procedure) => {
+      const { client, rpc, request } = fixture();
+      Object.assign(client, {
+        from(table: string) {
+          expect(table).toBe("admin_roles");
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { user_id: id },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        },
+      });
+      const path = `/admin/${resource}/${id}`;
+      expect((await request(path, "PATCH", {})).status).toBe(400);
+      expect((await request(path, "PATCH", { name: "Novo nome" })).status).toBe(
+        200,
+      );
+      expect(rpc).toHaveBeenCalledExactlyOnceWith(procedure, {
+        p_id: id,
+        p_name: "Novo nome",
+      });
+    },
+  );
   it("rejects unsafe create data and caller-controlled authority", async () => {
     const { request, rpc } = fixture();
     const response = await request("/occurrences", "POST", {

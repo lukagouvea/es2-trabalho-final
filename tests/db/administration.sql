@@ -23,6 +23,13 @@ do $$declare a public.sectors;b public.sectors;c public.categories;o public.occu
  perform save_sector(a.name,'',false,a.id);
  begin perform set_user_sectors('12000000-0000-0000-0000-000000000002',array[a.id]);raise exception 'Inactive sector received membership';exception when invalid_parameter_value then null;end;
  begin perform save_sector(b.name,'',false,b.id);raise exception 'Sector with open demand deactivated';exception when unique_violation then null;end;
+ a:=patch_sector(a.id,p_description=>'Descrição preservada');
+ a:=patch_sector(a.id,p_name=>'Setor renomeado');
+ if a.active or a.description<>'Descrição preservada' then raise exception 'Partial rename changed sector fields';end if;
+ c:=patch_category(c.id,p_active=>false);
+ c:=patch_category(c.id,p_name=>'Categoria renomeada');
+ if c.active or c.icon<>'bulb' or c.sector_id<>b.id then raise exception 'Partial rename changed category fields';end if;
+ begin perform patch_sector(b.id,p_active=>false);raise exception 'Partial edit bypassed open demand restriction';exception when unique_violation then null;end;
  perform update_profile('Updated Name');
  if (select name from profiles where id=auth.uid())<>'Updated Name' then raise exception 'Profile did not update';end if;
  stats:=get_statistics((now() at time zone 'America/Sao_Paulo')::date,(now() at time zone 'America/Sao_Paulo')::date);

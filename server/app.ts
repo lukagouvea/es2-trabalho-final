@@ -1,23 +1,26 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import { catalogAdminRoutes } from "./catalog-admin.js";
+import {
+  ApiError,
+  body,
+  checked,
+  dbError,
+  dto,
+  invalid,
+  rpc,
+  text,
+  uuid,
+  type Env,
+} from "./api-support.js";
 
 type Config = {
   clientFactory?: (token: string) => SupabaseClient;
   supabaseUrl?: string;
   supabaseKey?: string;
 };
-type Env = {
-  Variables: { db: SupabaseClient; userId: string; email: string | undefined };
-};
-type ApiContext = Context<Env>;
-// PostgreSQL accepts canonical UUIDs without RFC version/variant bits.
-const uuid = z
-  .string()
-  .regex(
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    "UUID inválido.",
-  );
 const status = z.enum([
   "registrada",
   "analise",
@@ -25,7 +28,6 @@ const status = z.enum([
   "resolvida",
   "encerrada",
 ]);
-const text = (min: number, max: number) => z.string().trim().min(min).max(max);
 const pageSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().optional(),
@@ -46,94 +48,6 @@ const occurrenceSchema = z
     photoPath: text(1, 512).nullable().optional(),
   })
   .strict();
-const sectorSchema = z
-  .object({
-    name: text(3, 80),
-    description: text(0, 300).default(""),
-    active: z.boolean().default(true),
-  })
-  .strict();
-const categorySchema = z
-  .object({
-    name: text(3, 60),
-    sectorId: uuid,
-    icon: z.enum(["bulb", "drop", "accessibility", "tool", "building"]),
-    active: z.boolean().default(true),
-  })
-  .strict();
-class ApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-    public fields?: unknown,
-  ) {
-    super(message);
-  }
-}
-const invalid = (message = "Dados inválidos.") =>
-  new ApiError(400, "INVALID_INPUT", message);
-function checked<T>(schema: z.ZodType<T>, value: unknown): T {
-  const result = schema.safeParse(value);
-  if (!result.success)
-    throw new ApiError(
-      400,
-      "INVALID_INPUT",
-      "Revise os campos informados.",
-      result.error.flatten().fieldErrors,
-    );
-  return result.data;
-}
-async function body(c: ApiContext) {
-  try {
-    return await c.req.json();
-  } catch {
-    throw invalid("JSON inválido.");
-  }
-}
-function dbError(error: { code?: string; message?: string } | null) {
-  if (!error) return;
-  const map: Record<string, [number, string, string]> = {
-    "42501": [403, "FORBIDDEN", "Você não tem permissão para esta ação."],
-    P0002: [404, "NOT_FOUND", "Registro não encontrado."],
-    "22023": [400, "INVALID_INPUT", "Dados inválidos."],
-    "23502": [400, "INVALID_INPUT", "Dados obrigatórios ausentes."],
-    "23514": [400, "INVALID_INPUT", "Dados inválidos."],
-    "23503": [
-      409,
-      "CONFLICT",
-      "O registro possui vínculos que impedem esta alteração.",
-    ],
-    "23505": [
-      409,
-      "CONFLICT",
-      "Este registro já existe ou a solicitação foi reutilizada.",
-    ],
-    "40001": [
-      409,
-      "CONFLICT",
-      "A ocorrência mudou. Atualize os dados e tente novamente.",
-    ],
-    P0001: [409, "CONFLICT", "Esta ação viola uma regra de negócio."],
-  };
-  const [s, code, message] = map[error.code ?? ""] ?? [
-    500,
-    "INTERNAL_ERROR",
-    "Não foi possível concluir a operação.",
-  ];
-  throw new ApiError(s, code, message);
-}
-function dto(value: unknown): any {
-  if (Array.isArray(value)) return value.map(dto);
-  if (value && typeof value === "object")
-    return Object.fromEntries(
-      Object.entries(value).map(([key, v]) => [
-        key.replace(/_([a-z])/g, (_, x: string) => x.toUpperCase()),
-        dto(v),
-      ]),
-    );
-  return value;
-}
 type Cursor = { id: string; createdAt?: string };
 function decodeCursor(value?: string): Cursor | undefined {
   if (!value) return;
@@ -266,15 +180,6 @@ async function readCatalog(db: SupabaseClient) {
   dbError(categories.error);
   return { sectors: dto(sectors.data), categories: dto(categories.data) };
 }
-async function rpc(
-  db: SupabaseClient,
-  name: string,
-  params?: Record<string, unknown>,
-) {
-  const { data, error } = await db.rpc(name, params);
-  dbError(error);
-  return dto(data);
-}
 async function requireAdmin(db: SupabaseClient, userId: string) {
   const { data, error } = await db
     .from("admin_roles")
@@ -342,6 +247,19 @@ export function createApp(config: Config = {}) {
         },
       });
     const { data, error } = await db.auth.getUser(token);
+    if (
+      error &&
+      (error.status === undefined ||
+        error.status === 0 ||
+        error.status === 408 ||
+        error.status === 429 ||
+        error.status >= 500)
+    )
+      throw new ApiError(
+        503,
+        "AUTH_UNAVAILABLE",
+        "Serviço de autenticação indisponível. Tente novamente.",
+      );
     if (error || !data.user)
       throw new ApiError(
         401,
@@ -609,52 +527,7 @@ export function createApp(config: Config = {}) {
     });
     return c.json(page(rows ?? [], p.limit, false));
   });
-  for (const resource of ["sectors", "categories"] as const) {
-    const save = async (c: ApiContext, patch: boolean) => {
-      const id = patch ? checked(uuid, c.req.param("id")) : null;
-      const schema: z.ZodObject<any> =
-        resource === "sectors" ? sectorSchema : categorySchema;
-      const input = await body(c);
-      let b: any;
-      if (patch) {
-        const partial = checked(schema.partial().strict(), input);
-        if (!Object.keys(partial).length) throw invalid();
-        const existing = await c
-          .get("db")
-          .from(resource)
-          .select("*")
-          .eq("id", id)
-          .maybeSingle();
-        dbError(existing.error);
-        if (!existing.data)
-          throw new ApiError(404, "NOT_FOUND", "Registro não encontrado.");
-        const editable = Object.fromEntries(
-          Object.entries(dto(existing.data)).filter(([key]) =>
-            Object.keys(schema.shape).includes(key),
-          ),
-        );
-        b = checked(schema, { ...editable, ...partial });
-      } else b = checked(schema, input);
-      const params = {
-        p_id: id,
-        p_name: b.name,
-        p_active: b.active,
-        ...(resource === "sectors"
-          ? { p_description: b.description }
-          : { p_sector_id: b.sectorId, p_icon: b.icon }),
-      };
-      return c.json(
-        await rpc(
-          c.get("db"),
-          resource === "sectors" ? "save_sector" : "save_category",
-          params,
-        ),
-        patch ? 200 : 201,
-      );
-    };
-    app.post(`/api/admin/${resource}`, (c) => save(c, false));
-    app.patch(`/api/admin/${resource}/:id`, (c) => save(c, true));
-  }
+  app.route("/api/admin", catalogAdminRoutes);
   app.put("/api/admin/users/:id/sectors", async (c) => {
     const id = checked(uuid, c.req.param("id"));
     const b = checked(
