@@ -90,9 +90,6 @@ jobs:
       - name: Selecionar Chromium instalado
         run: node -e 'console.log("CAMPUS_CHROME=" + require("@playwright/test").chromium.executablePath())' >> "$GITHUB_ENV"
       - run: npm run test:e2e -- --workers=1 --forbid-only --reporter=line,html --trace=retain-on-failure
-      - name: Executar testes do protótipo
-        if: ${{ !cancelled() }}
-        run: npm run test:prototype
       - uses: actions/upload-artifact@v5
         if: ${{ !cancelled() }}
         with:

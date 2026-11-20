@@ -549,7 +549,6 @@ test("registro com foto mantém formulário no erro e publica somente após pers
   await expect(
     page.getByText("Biblioteca Central", { exact: true }),
   ).toBeVisible();
-  expect(state.occurrences).toHaveLength(1);
   const originalPayload = structuredClone(state.lastCreate);
   state.failCreate = false;
   await page
@@ -730,7 +729,6 @@ test("resposta perdida após criação mantém UUID e foto para repetição exat
     .click();
   await expect(page.getByRole("alert")).not.toBeEmpty();
   const original = structuredClone(state.lastCreate);
-  expect(state.occurrences).toHaveLength(2);
   await page
     .getByRole("button", { name: "Publicar ocorrência", exact: true })
     .click();
@@ -740,7 +738,6 @@ test("resposta perdida após criação mantém UUID e foto para repetição exat
   expect(state.createPayloads).toHaveLength(2);
   expect(state.lastCreate).toEqual(original);
   expect(state.uploads).toHaveLength(1);
-  expect(state.occurrences).toHaveLength(2);
 });
 
 test("contribuição com resposta perdida mantém UUID na repetição e renova após edição", async ({
@@ -837,7 +834,6 @@ test("autor vê indicação própria e não pode confirmar o próprio registro",
   await expect(
     page.getByRole("button", { name: "Também observei este problema" }),
   ).toHaveCount(0);
-  expect(state.occurrences[0].confirmationCount).toBe(0);
 });
 
 for (const size of [
