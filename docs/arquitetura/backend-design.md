@@ -43,7 +43,7 @@ Não acrescentar reabertura, retirada de confirmação, edição/exclusão do re
 
 ## Regras adotadas a partir do protótipo
 
-O arquivo `Regras_de_Negocio_Pendentes_Grupo5.md` distingue hipóteses de decisões validadas. Para implementar esta versão, propõe-se adotar os comportamentos já presentes no protótipo, sem apresentá-los como decisões de setores reais da UFV:
+O arquivo [Regras_de_Negocio_Pendentes_Grupo5.md](../../entregas/F1-concepcao/Regras_de_Negocio_Pendentes_Grupo5.md) distingue hipóteses de decisões validadas. Para implementar esta versão, propõe-se adotar os comportamentos já presentes no protótipo, sem apresentá-los como decisões de setores reais da UFV:
 
 1. Uma conta pode ser responsável por vários setores e cada setor pode ter vários responsáveis.
 2. Cadastro sempre cria membro. Privilégios administrativos ficam separados dos vínculos de atendimento. Administrador só atende se tiver vínculo com o setor atual.

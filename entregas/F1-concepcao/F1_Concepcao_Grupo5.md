@@ -45,7 +45,7 @@ A comunidade identifica um problema e consulta o mapa. Se o problema já estiver
 
 O diagrama representa o processo de negócio, incluindo a manutenção física realizada fora do aplicativo. O fluxo de cadastro de uma nova ocorrência foi escolhido como elemento central; a colaboração sobre registros existentes é tratada separadamente para manter o desenho sucinto.
 
-![Diagrama de atividades do atendimento](diagramas_concepcao/atividades.svg)
+![Diagrama de atividades do atendimento](diagramas/atividades.svg)
 
 #### 1.3.2 Ciclo de vida da ocorrência
 
@@ -57,7 +57,7 @@ O diagrama representa o processo de negócio, incluindo a manutenção física r
 | Resolvida | O responsável registrou a conclusão e a providência adotada. |
 | Encerrada | A análise concluiu que o registro não seguirá para atendimento, com justificativa. |
 
-![Diagrama de estados da ocorrência](diagramas_concepcao/estados.svg)
+![Diagrama de estados da ocorrência](diagramas/estados.svg)
 
 Esta versão considera resolução e encerramento finais. Reabertura e revisão dessa decisão permanecem como pontos de discussão. A indicação de duplicidade pode ser uma justificativa de encerramento; a vinculação formal entre duplicatas ainda não integra o escopo.
 
@@ -651,13 +651,13 @@ Cada processo corresponde a uma interação concluída em uma sessão. O atendim
 
 ### 3.2 Diagrama de casos de uso
 
-![Diagrama de casos de uso de alto nível](diagramas_concepcao/casos_de_uso.svg)
+![Diagrama de casos de uso de alto nível](diagramas/casos_de_uso.svg)
 
 O diagrama mantém UC1–UC4 como processos de negócio nesta versão, conforme a decisão do grupo. As operações de manutenção de informações recebem o estereótipo `«CRUD»` e as consultas recebem `«rep»`, como no slide 38. Os processos de negócio permanecem sem estereótipo. A marcação distingue os grupos sem alterar a granularidade dos casos de uso. Responsável e administrador especializam o membro da comunidade, herdando suas possibilidades de participação. Relações de inclusão e extensão e fluxos detalhados ficam para a elaboração.
 
 ### 3.3 Modelo conceitual preliminar
 
-![Modelo conceitual preliminar](diagramas_concepcao/modelo_conceitual.svg)
+![Modelo conceitual preliminar](diagramas/modelo_conceitual.svg)
 
 O modelo apresenta conceitos do domínio e algumas informações principais, sem métodos, tipos, multiplicidades ou navegabilidade. O perfil é uma informação do usuário; o vínculo representa sua responsabilidade por um setor. Fotos são informações da ocorrência, sem classe específica nesta concepção. A estrutura poderá ser refinada na elaboração.
 
@@ -821,7 +821,7 @@ Na elaboração serão expandidos os casos de uso de negócio, suas alternativas
 
 ## 7. Fontes
 
-- [Proposta inicial do Grupo 5 — definição do tema](entrega_1_es2_mapa_colaborativo_261003_224443.pdf).
+- [Proposta inicial do Grupo 5 — definição do tema](../00-proposta-tema/Proposta_Tema_Grupo5.pdf).
 - [Slides — Análise e especificação de requisitos funcionais e não funcionais](<2 - Análise e Especificação de Requisitos Funcionais e Não-Funcionais - v2.pdf>), especialmente slides 6–50.
 - [Wazlawick — capítulo 2, Visão Geral do Sistema](<Análise e Projeto de Sistemas de Informação orientados (Raul Wazlawick)-17-28.pdf>), páginas impressas 9–20 do trecho fornecido. O capítulo orienta um sumário sucinto e a modelagem seletiva do negócio; requisitos e planejamento complementam essa visão conforme o slide.
 - [Exemplo F1 — documento fornecido como referência de apresentação](<Exemplo F1.pdf>), especialmente fichas de requisitos, organização dos requisitos e planejamento preliminar.
@@ -829,11 +829,7 @@ Na elaboração serão expandidos os casos de uso de negócio, suas alternativas
 
 **Ajustes da versão 0.2:** fichas de requisitos conforme o exemplo F1; localização manual incorporada a F4, com retirada da antiga restrição NF4.2; identificação de cadastros e consultas no diagrama; tabelas de planejamento e cronograma reorganizadas. UC1–UC4 e a disponibilidade informada foram mantidos.
 
-As fontes PlantUML dos quatro diagramas acompanham os SVGs em `diagramas_concepcao/`, permitindo seu refinamento posterior.
+As fontes PlantUML dos quatro diagramas acompanham os SVGs em `diagramas/`, permitindo seu refinamento posterior.
 
 **Ajustes da versão 0.3:** requisitos apresentados em tabelas com células mescladas, seguindo o modelo visual fornecido; conteúdo a partir da seção 4.3 preservado em comentário HTML para apoio à revisão.
 -->
-
-## Aplicação web com backend
-
-A evolução conectada usa Node.js/TypeScript na Vercel e Supabase para Auth, PostgreSQL e fotos. Consulte [execução, testes e publicação](docs/EXECUCAO.md). O protótipo Android navegável permanece em `prototipo/`; a entrega atual inclui uma aplicação web responsiva.

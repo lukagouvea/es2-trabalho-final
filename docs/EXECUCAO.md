@@ -1,10 +1,10 @@
 # Executar e publicar o Campus em dia
 
-A aplicação conectada implementa os fluxos F1–F13 com uma API na Vercel e serviços Supabase. O protótipo original em `prototipo/` continua independente, com dados fictícios locais. A versão conectada usa contas reais e não importa os dados do protótipo.
+A aplicação conectada implementa os fluxos F1–F13 com uma API na Vercel e serviços Supabase. O protótipo navegável entregue na F2 está arquivado em [`entregas/F2-prototipo-apf/prototipo/`](../entregas/F2-prototipo-apf/prototipo/) e não faz parte da aplicação nem do CI. A versão conectada usa contas reais e não importa os dados do protótipo.
 
 ## Desenvolvimento
 
-Requisitos: Node.js 24 (`nvm install && nvm use`), npm, Docker em execução e Python 3 para os testes antigos.
+Requisitos: Node.js 24 (`nvm install && nvm use`), npm, Docker em execução e Python 3 para o teste de concorrência do banco (`test:db`).
 
 ```bash
 npm ci
@@ -41,11 +41,10 @@ npm test
 npm run test:db
 npm run test:integration
 npm run test:e2e
-npm run test:prototype
 npm run build
 ```
 
-`test:db` cria um PostgreSQL 17 isolado com schemas mínimos de Auth/Storage e testa SQL/RLS/transações; não testa os serviços HTTP do Supabase. Os testes integrados devem usar a instância Supabase local completa. O teste de navegador usa contratos HTTP simulados para verificar a interface. Os testes de navegador usam o Chrome instalado em `/opt/google/chrome/chrome`; configure `CAMPUS_CHROME` para outro caminho. Tiles e Photon são simulados nos testes. O script de teste do protótipo usa uma cópia temporária e não substitui as capturas versionadas.
+`test:db` cria um PostgreSQL 17 isolado com schemas mínimos de Auth/Storage e testa SQL/RLS/transações; não testa os serviços HTTP do Supabase. Os testes integrados devem usar a instância Supabase local completa. O teste de navegador usa contratos HTTP simulados para verificar a interface. Os testes de navegador usam o Chrome instalado em `/opt/google/chrome/chrome`; configure `CAMPUS_CHROME` para outro caminho. Tiles e Photon são simulados nos testes.
 
 ## Supabase publicado
 
@@ -91,7 +90,7 @@ A área geográfica é a referência aproximada do protótipo, não a divisa cad
 
 `GET /api/bootstrap` reúne perfil e catálogo na inicialização. O frontend mantém contexto e telas por até 30 segundos somente em memória, invalida depois de alterações e limpa tudo ao trocar de conta. A função está configurada em Portland (`pdx1`), junto da região do banco hospedado atual (`us-west-2`); se o projeto de banco mudar de região, ajuste `regions` em `vercel.json`.
 
-Todas as rotas de negócio exigem `Authorization: Bearer <access_token>`. Somente `GET /api/health` é público. Os contratos estão no [desenho do backend](superpowers/specs/2026-11-15-backend-supabase-design.md). JSON usa camelCase; listagens retornam `{ items, nextCursor }`. O UUID `id` identifica o registro e `number` é o número exibido da ocorrência.
+Todas as rotas de negócio exigem `Authorization: Bearer <access_token>`. Somente `GET /api/health` é público. Os contratos estão no [desenho do backend](arquitetura/backend-design.md). JSON usa camelCase; listagens retornam `{ items, nextCursor }`. O UUID `id` identifica o registro e `number` é o número exibido da ocorrência.
 
 `GET /api/occurrences` aceita `q`, `categoryId`, `sectorId`, `status`, `scope`, `cursor` e `limit` (padrão 50, máximo 100). `status=ativas` reúne registrada, análise e andamento. `scope` aceita `all`, `authored`, `confirmed` e `assigned`. Estatísticas aceitam `from` e `to` no formato `YYYY-MM-DD`, com dias inclusivos no calendário de São Paulo.
 
@@ -111,7 +110,7 @@ Os testes de integração escolhem explicitamente a categoria Iluminação para 
 
 A branch de produção é `master`. O workflow **CI** roda em PRs para essa branch e também é reutilizado pelo **CD** após cada push/merge nela. Os jobs de qualidade/build, banco/integração e navegador executam em paralelo. O check **CI aprovado** exige sucesso de todos eles, inclusive quando algum job falha, é cancelado ou é ignorado. Novos commits cancelam os jobs antigos do mesmo PR.
 
-Os runners usam Ubuntu 24.04, Node.js 24 da `.nvmrc`, `npm ci` e cache do npm. O CI executa formatação, tipos, testes unitários, build, SQL/RLS/concorrência, integração com Supabase local, E2E e protótipo. A build de validação usa configuração pública fictícia. As suítes de banco usam instâncias descartáveis locais; nenhuma conta hospedada é usada. O Chromium é instalado pelo Playwright e seu caminho é passado por `CAMPUS_CHROME`. Relatórios, screenshots e traces de falha ficam nos artefatos do job Navegador por sete dias.
+Os runners usam Ubuntu 24.04, Node.js 24 da `.nvmrc`, `npm ci` e cache do npm. O CI executa formatação, tipos, testes unitários, build, SQL/RLS/concorrência, integração com Supabase local e E2E. A build de validação usa configuração pública fictícia. As suítes de banco usam instâncias descartáveis locais; nenhuma conta hospedada é usada. O Chromium é instalado pelo Playwright e seu caminho é passado por `CAMPUS_CHROME`. Relatórios, screenshots e traces de falha ficam nos artefatos do job Navegador por sete dias.
 
 ### Ativação no GitHub e na Vercel
 

@@ -1,6 +1,6 @@
 # Campus em dia — protótipo navegável
 
-Protótipo das telas do aplicativo Android descrito em [F1_Concepcao_Grupo5.md](../F1_Concepcao_Grupo5.md), incluindo os três perfis e os requisitos F1–F13. A implementação no navegador serve para apresentar e testar a experiência; não é uma versão web de produção nem um APK.
+Protótipo das telas do aplicativo Android descrito em [F1_Concepcao_Grupo5.md](../../F1-concepcao/F1_Concepcao_Grupo5.md), incluindo os três perfis e os requisitos F1–F13. A implementação no navegador serve para apresentar e testar a experiência; não é uma versão web de produção nem um APK.
 
 ## Como visualizar
 
@@ -9,7 +9,7 @@ Abra **http://localhost:5173** no navegador. O aplicativo não exige instalaçã
 Para usar um endereço local, execute a partir da pasta do projeto:
 
 ```bash
-python3 -m http.server 5173 --bind 127.0.0.1 --directory prototipo
+python3 -m http.server 5173 --bind 127.0.0.1 --directory entregas/F2-prototipo-apf/prototipo
 ```
 
 Acesse **http://localhost:5173**. Se a porta estiver ocupada, escolha outra e use o mesmo número no endereço. Para encerrar o servidor, pressione `Ctrl+C` no terminal.
@@ -79,7 +79,7 @@ A consulta ocorre apenas após selecionar um ponto, com espera de 400 ms para co
 
 ## Hipóteses concretizadas somente para o protótipo
 
-As pendências do documento [Regras_de_Negocio_Pendentes_Grupo5.md](../Regras_de_Negocio_Pendentes_Grupo5.md) continuam sendo questões do projeto. Para permitir navegar, esta demonstração utiliza os seguintes comportamentos:
+As pendências do documento [Regras_de_Negocio_Pendentes_Grupo5.md](../../F1-concepcao/Regras_de_Negocio_Pendentes_Grupo5.md) continuam sendo questões do projeto. Para permitir navegar, esta demonstração utiliza os seguintes comportamentos:
 
 - Um responsável pode atuar em vários setores. Administração não concede acesso automático ao atendimento.
 - Mudar a associação de uma categoria afeta apenas os novos registros. A transferência de ocorrências anteriores é explícita e mantém a situação atual, registrando os setores no histórico.
@@ -95,7 +95,7 @@ As pendências do documento [Regras_de_Negocio_Pendentes_Grupo5.md](../Regras_de
 `verificacao/` contém capturas e a validação de fluxos feita com Playwright. Os scripts são opcionais, não necessários para abrir o protótipo. Para executar a verificação em uma máquina com Playwright e Chrome instalados:
 
 ```bash
-CAMPUS_PLAYWRIGHT=/caminho/do/pacote/playwright CAMPUS_CHROME=/caminho/do/chrome node prototipo/verificacao/fluxos.cjs
+CAMPUS_PLAYWRIGHT=/caminho/do/pacote/playwright CAMPUS_CHROME=/caminho/do/chrome node entregas/F2-prototipo-apf/prototipo/verificacao/fluxos.cjs
 ```
 
 O teste usa uma sessão isolada e não altera os dados do seu navegador habitual. Tiles e consultas de nomes são simulados nos testes automatizados para não gerar tráfego repetitivo aos provedores. `verificacao/localizacao.cjs`, executado da mesma forma que `fluxos.cjs`, verifica respostas atrasadas, cache, correção manual, falta de nomes, falhas de conexão e limite de espera. A inspeção visual separada verifica imagens reais em `verificacao/visualizar.cjs`. O relatório dos fluxos é salvo em `verificacao/resultado.json`.
