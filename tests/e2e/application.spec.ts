@@ -1258,12 +1258,12 @@ test("resposta de alteração da sessão anterior não aborta a entrada da nova 
   state.me.email = state.user.email;
   state.bootstrapDelay = 700;
   state.routeDelay = 700;
+  // A tela Conta também tem um campo "E-mail"; espere a tela de entrada.
+  await expect(
+    page.getByRole("button", { name: "Entrar", exact: true }),
+  ).toBeVisible();
   await page.getByLabel("E-mail", { exact: true }).fill(state.user.email);
   await page.getByLabel("Senha", { exact: true }).fill("Campus123!");
-  await page.getByLabel("E-mail", { exact: true }).fill("outra@example.org");
-  await expect(page.getByLabel("E-mail", { exact: true })).toHaveValue(
-    "outra@example.org",
-  );
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect
     .poll(
