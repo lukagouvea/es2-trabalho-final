@@ -271,5 +271,11 @@ describe("Local Auth + API + PostgreSQL integration", () => {
       true,
     );
     expect(confirmed.items.some((row: any) => row.id === secondId)).toBe(false);
+    const confirmedByAuthor = await (
+      await request("/occurrences?scope=confirmed")
+    ).json();
+    expect(
+      confirmedByAuthor.items.some((row: any) => row.id === occurrenceId),
+    ).toBe(false);
   });
 });

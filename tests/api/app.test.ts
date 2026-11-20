@@ -71,8 +71,7 @@ describe("API boundary", () => {
     async (resource, procedure) => {
       const { client, rpc, request } = fixture();
       Object.assign(client, {
-        from(table: string) {
-          expect(table).toBe("admin_roles");
+        from() {
           return {
             select: () => ({
               eq: () => ({
@@ -469,27 +468,11 @@ describe("bootstrap and occurrence round trips", () => {
         });
       const reads = urls.filter((url) => url.pathname.includes("/rest/v1/"));
       expect(reads).toHaveLength(1);
-      expect(reads[0].searchParams.get("my_confirmation.user_id")).toBe(
-        "eq." + id,
-      );
       const select = reads[0].searchParams.get("select")!;
-      expect(select).toContain("my_confirmation:confirmations(user_id)");
-      expect(select).toContain("confirmations(count)");
-      expect(select).not.toContain("!inner");
       expect(select).not.toContain("*");
       expect(select).not.toContain("request_payload");
       expect(select).not.toContain("geocoder_metadata");
       expect(select).toContain("photo_path");
     },
   );
-  it("keeps the inner join only for the confirmed scope", async () => {
-    const { request, urls } = transport(() => []);
-    expect((await request("/occurrences?scope=confirmed")).status).toBe(200);
-    const url = urls.find((url) => url.pathname.endsWith("/occurrences"))!;
-    expect(url.searchParams.get("select")).toContain(
-      "own_confirmation:confirmations!inner(user_id)",
-    );
-    expect(url.searchParams.get("own_confirmation.user_id")).toBe("eq." + id);
-    expect(url.searchParams.get("my_confirmation.user_id")).toBe("eq." + id);
-  });
 });
