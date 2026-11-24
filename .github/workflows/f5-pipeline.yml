@@ -1,0 +1,184 @@
+name: F5 — Pipeline CI/CD
+
+# Roda a cada commit recebido no repositorio
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # Roda a suite de testes unitarios da API
+  unit-tests:
+    name: Testes unitarios
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  # Executa o script de deteccao de code smell
+  smell-detection:
+    name: Deteccao de code smell
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Rodar detector de God Module
+        id: detect
+        run: |
+          set +e
+          node scripts/detect-god-class.mjs > smells.json 2>detect-stderr.txt
+          EXIT_CODE=$?
+          cat detect-stderr.txt >&2
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Listar smells encontrados
+        run: |
+          if [ -s smells.json ]; then
+            echo "Smells detectados no commit:"
+            node -e '
+              const fs = require("fs");
+              const content = fs.readFileSync("smells.json", "utf8").trim();
+              if (content) {
+                for (const line of content.split("\n")) {
+                  if (!line.trim()) continue;
+                  const s = JSON.parse(line);
+                  console.log(`- ${s.file} (${s.totalLines} linhas, ${s.topLevelFunctions} funcoes): ${s.reason}`);
+                }
+              }
+            '
+          else
+            echo "Nenhum code smell detectado."
+          fi
+
+      - name: Criar issues no GitHub para cada smell
+        if: steps.detect.outputs.exit_code == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -s smells.json ]; then
+            exit 0
+          fi
+
+          # Cria a label se ainda nao existir no repo
+          gh label create "code-smell" --color "d73a4a" --description "Code smell detectado pelo CI" --force 2>/dev/null || true
+
+          # Pega titulos de issues que ja estao abertas para nao abrir repetida
+          EXISTING=$(gh issue list --repo "$REPO" --state open --json title --jq '.[].title' 2>/dev/null || echo "")
+
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+
+            FILE=$(echo "$line" | jq -r '.file')
+            TOTAL=$(echo "$line" | jq -r '.totalLines')
+            FUNCS=$(echo "$line" | jq -r '.topLevelFunctions')
+            REASON=$(echo "$line" | jq -r '.reason')
+
+            TITLE="Code smell: God Module em $FILE"
+
+            # Se ja tem issue aberta para esse arquivo, pula
+            if echo "$EXISTING" | grep -qF "$TITLE"; then
+              echo "Issue ja aberta para $FILE, pulando criacao."
+              continue
+            fi
+
+            BODY=$(printf "O script de analise estatica encontrou uma instancia de God Module neste arquivo.\n\n- Arquivo: %s\n- Total de linhas: %s\n- Funcoes de nivel superior: %s\n- Detalhes: %s\n\nPara resolver este smell e fechar a issue, divida as funcoes deste arquivo em modulos menores e faca o commit citando o numero desta issue." "$FILE" "$TOTAL" "$FUNCS" "$REASON")
+
+            gh issue create \
+              --repo "$REPO" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label "code-smell" || \
+            gh issue create \
+              --repo "$REPO" \
+              --title "$TITLE" \
+              --body "$BODY"
+
+            echo "Issue criada com sucesso para $FILE"
+          done < smells.json
+
+  # Coloca em producao se os testes passarem
+  deploy:
+    name: Deploy em producao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [unit-tests]
+    if: >
+      success() &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validar build de producao
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'http://127.0.0.1:55321' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'ci-key' }}
+
+      - name: Acionar deploy na Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+        run: |
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${VERCEL_PROJECT_ID:-}" ]; then
+            echo "VERCEL_TOKEN ou VERCEL_PROJECT_ID nao configurados no GitHub."
+            echo "O deploy segue gerenciado pela integracao padrao da Vercel no branch master."
+            exit 0
+          fi
+
+          TEAM_PARAM=""
+          if [ -n "${VERCEL_TEAM_ID:-}" ]; then
+            TEAM_PARAM="&teamId=${VERCEL_TEAM_ID}"
+          fi
+
+          echo "Disparando deploy na API da Vercel..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.vercel.com/v13/deployments?forceNew=1${TEAM_PARAM}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"campus-em-dia\",
+              \"projectId\": \"$VERCEL_PROJECT_ID\",
+              \"gitSource\": {
+                \"type\": \"github\",
+                \"repoId\": \"${{ github.repository_id }}\",
+                \"ref\": \"${{ github.ref_name }}\",
+                \"sha\": \"${{ github.sha }}\"
+              }
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            DEPLOY_URL=$(echo "$BODY" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('url',''))" 2>/dev/null || echo "")
+            echo "Deploy concluido. URL: https://$DEPLOY_URL"
+          else
+            echo "Erro no deploy da Vercel (HTTP $HTTP_CODE)."
+            echo "$BODY"
+            exit 1
+          fi

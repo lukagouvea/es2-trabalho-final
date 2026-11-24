@@ -17,6 +17,7 @@
     "db:start": "supabase start",
     "db:reset": "supabase db reset --local",
     "uploads:clean": "tsx --env-file=.env.local scripts/clean-uploads.ts",
+    "smells:detect": "node scripts/detect-god-class.mjs",
     "format": "prettier --write server api web/*.js web/*.html web/public/application.css scripts tests *.config.ts tsconfig.json package.json vercel.json",
     "format:check": "prettier --check server api web/*.js web/*.html web/public/application.css scripts tests *.config.ts tsconfig.json package.json vercel.json"
   },
